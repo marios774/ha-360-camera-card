@@ -3,6 +3,10 @@
 Example:
 
 ```yaml
+api:
+  listen: ":1984"
+  origin: "*"
+
 streams:
   ai360:
     - rtspx://192.0.2.20:7441/REPLACE_WITH_PRIVATE_TOKEN
