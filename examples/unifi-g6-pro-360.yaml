@@ -1,0 +1,6 @@
+type: custom:ha-360-camera-card
+title: G6 Pro 360
+camera_profile: unifi_g6_pro_360
+whep_url: http://192.0.2.10:1984/api/webrtc?src=g6_pro_360
+height: 560
+storage_key: g6-pro-360

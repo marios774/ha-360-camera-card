@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Home Assistant 360 Camera Card</title>
+  <style>
+    body{font-family:system-ui,sans-serif;max-width:900px;margin:40px auto;padding:0 20px;line-height:1.6}
+    code,pre{background:#f3f4f6;border-radius:6px}pre{padding:16px;overflow:auto}
+  </style>
+</head>
+<body>
+  <h1>Home Assistant 360 Camera Card</h1>
+  <p>Interactive WebGL viewer for 360° and fisheye streams in Home Assistant.</p>
+  <p>See the repository README for installation and configuration.</p>
+  <h2>Basic YAML</h2>
+  <pre><code>type: custom:ha-360-camera-card
+camera_profile: unifi_ai360
+whep_url: http://go2rtc:1984/api/webrtc?src=ai360</code></pre>
+</body>
+</html>

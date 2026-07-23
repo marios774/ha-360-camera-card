@@ -1,0 +1,33 @@
+name: Bug report
+description: Report a reproducible problem
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Never post RTSP tokens, passwords or private camera URLs.
+  - type: input
+    id: version
+    attributes:
+      label: Card version
+    validations:
+      required: true
+  - type: input
+    id: camera
+    attributes:
+      label: Camera model and stream type
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Sanitized YAML configuration
+      render: yaml
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem description
+    validations:
+      required: true

@@ -1,0 +1,12 @@
+type: custom:ha-360-camera-card
+title: Generic fisheye
+camera_profile: generic
+whep_url: http://192.0.2.10:1984/api/webrtc?src=fisheye
+projection: hemisphere
+fisheye_fov: 180
+circle_radius: 0.49
+center_x: 0.5
+center_y: 0.5
+mirror: false
+rotate: 0
+storage_key: generic-fisheye

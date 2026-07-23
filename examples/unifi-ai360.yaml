@@ -1,0 +1,12 @@
+type: custom:ha-360-camera-card
+title: AI 360
+camera_profile: unifi_ai360
+whep_url: http://192.0.2.10:1984/api/webrtc?src=ai360
+height: 560
+yaw: 0
+pitch: 55
+roll: 180
+fov: 90
+control_invert_x: true
+control_invert_y: true
+storage_key: ai360-garden

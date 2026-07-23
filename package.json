@@ -1,0 +1,19 @@
+{
+  "name": "ha-360-camera-card",
+  "version": "1.0.0",
+  "description": "Interactive WebGL 360\u00b0 and fisheye camera card for Home Assistant.",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "build": "esbuild src/ha-360-camera-card.js --bundle --minify --format=esm --target=es2020 --outfile=dist/ha-360-camera-card.js",
+    "build:dev": "esbuild src/ha-360-camera-card.js --bundle --sourcemap --format=esm --target=es2020 --outfile=dist/ha-360-camera-card.js",
+    "check": "node --check src/ha-360-camera-card.js && node tests/repository-check.mjs",
+    "test": "npm run check"
+  },
+  "devDependencies": {
+    "esbuild": "^0.25.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
