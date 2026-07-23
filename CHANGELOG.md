@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.1.3 — 2026-07-23
+
+- Editor icon changed to `mdi:square-edit-outline`
+- Rotation controls use `mdi:rotate-left` and `mdi:rotate-right`
+- Camera profile selection now applies its calibration values in the GUI
+- GUI split into General, Home position, Display and controls, and Saved views
+- Up to four permanent views are stored in card YAML
+- Views saved from the live card are temporary and marked with a clock badge
+- Temporary views can be imported into YAML from the dashboard card editor
+
+# Changelog
+
 ## 1.1.2 — 2026-07-23
 
 ### Added

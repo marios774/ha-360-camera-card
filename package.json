@@ -1,6 +1,6 @@
 {
   "name": "ha-360-camera-card",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "Interactive WebGL 360\u00b0 and fisheye camera card for Home Assistant.",
   "type": "module",
   "private": true,

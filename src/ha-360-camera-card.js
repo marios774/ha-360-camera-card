@@ -1,4 +1,4 @@
-const HA360_VERSION = "1.1.2";
+const HA360_VERSION = "1.1.3";
 
 const CAMERA_PROFILES = {
   generic: {},
@@ -66,6 +66,7 @@ class Ha360CameraCard extends HTMLElement {
       keyboard: true,
       preset_editor: true,
       max_presets: 4,
+      presets: [],
       double_tap_home: true,
       muted: true,
       autoplay: true,
@@ -142,7 +143,9 @@ class Ha360CameraCard extends HTMLElement {
     this._presetNameInput = this.querySelector(".preset-name");
     this._presetIconPicker = this.querySelector("ha-icon-picker.preset-icon");
     this._presetButtons = this.querySelector(".preset-buttons");
-    this._presets = this._readPresets();
+    this._permanentPresets = Array.isArray(this.config.presets) ? this.config.presets.slice(0, 4).map(p => ({...p, temporary:false})) : [];
+    this._tempPresets = this._readTempPresets();
+    this._presets = [...this._permanentPresets, ...this._tempPresets].slice(0, 4);
     this._renderPresetButtons();
 
     this._bindControls();
@@ -181,14 +184,14 @@ class Ha360CameraCard extends HTMLElement {
     return `
       <div class="pad">
         <button type="button" data-action="up" aria-label="Nach oben"><ha-icon icon="mdi:chevron-up"></ha-icon></button>
-        <button type="button" data-action="left" aria-label="Nach links" title="Nach links"><ha-icon icon="mdi:undo"></ha-icon></button>
+        <button type="button" data-action="left" aria-label="Nach links" title="Nach links"><ha-icon icon="mdi:rotate-left"></ha-icon></button>
         <button type="button" data-action="home" aria-label="Startansicht" title="Startansicht"><ha-icon icon="mdi:home"></ha-icon></button>
-        <button type="button" data-action="right" aria-label="Nach rechts" title="Nach rechts"><ha-icon icon="mdi:redo"></ha-icon></button>
+        <button type="button" data-action="right" aria-label="Nach rechts" title="Nach rechts"><ha-icon icon="mdi:rotate-right"></ha-icon></button>
         <button type="button" data-action="down" aria-label="Nach unten"><ha-icon icon="mdi:chevron-down"></ha-icon></button>
       </div>
       <div class="presets">
         <div class="preset-buttons" aria-label="Gespeicherte Ansichten"></div>
-        ${this.config.preset_editor ? `<button type="button" data-action="preset-editor" aria-label="Ansichten verwalten" title="Ansichten verwalten"><ha-icon icon="mdi:bookmark-edit-outline"></ha-icon></button>` : ""}
+        ${this.config.preset_editor ? `<button type="button" data-action="preset-editor" aria-label="Ansichten verwalten" title="Ansichten verwalten"><ha-icon icon="mdi:square-edit-outline"></ha-icon></button>` : ""}
         <button type="button" data-action="show-values" aria-label="Aktuelle Ansichtswerte" title="Aktuelle Werte anzeigen"><ha-icon icon="mdi:information-outline"></ha-icon></button>
       </div>
       <div class="zoom">
@@ -268,7 +271,9 @@ class Ha360CameraCard extends HTMLElement {
 
       .preset-buttons { display: flex; gap: 8px; }
       .preset-buttons:empty { display: none; }
+      .preset-button { position: relative; }
       .preset-button.selected { outline: 2px solid var(--primary-color, #03a9f4); }
+      .preset-button .temp-badge { position:absolute; right:-3px; bottom:-3px; --mdc-icon-size:14px; background:#ff9800; border-radius:50%; padding:2px; }
       .preset-editor {
         position: absolute; top: 64px; left: 14px; z-index: 8;
         width: min(330px, calc(100% - 28px)); box-sizing: border-box;
@@ -337,10 +342,10 @@ class Ha360CameraCard extends HTMLElement {
 
 
   _presetCollectionKey() {
-    return `${this.config.storage_key || "unifi-ai360-view-card"}:presets`;
+    return `${this.config.storage_key || "unifi-ai360-view-card"}:temp-presets`;
   }
 
-  _readPresets() {
+  _readTempPresets() {
     try {
       const parsed = JSON.parse(localStorage.getItem(this._presetCollectionKey()) || "[]");
       return Array.isArray(parsed) ? parsed.slice(0, Math.min(4, Number(this.config.max_presets || 4))) : [];
@@ -349,8 +354,8 @@ class Ha360CameraCard extends HTMLElement {
     }
   }
 
-  _writePresets() {
-    localStorage.setItem(this._presetCollectionKey(), JSON.stringify(this._presets));
+  _writeTempPresets() {
+    localStorage.setItem(this._presetCollectionKey(), JSON.stringify(this._tempPresets));
   }
 
   _renderPresetButtons() {
@@ -359,6 +364,7 @@ class Ha360CameraCard extends HTMLElement {
       <button type="button" class="preset-button ${this._selectedPresetIndex === index ? "selected" : ""}"
         data-preset-index="${index}" aria-label="${this._escape(preset.name)}" title="${this._escape(preset.name)}">
         <ha-icon icon="${this._escape(preset.icon || "mdi:camera-marker")}"></ha-icon>
+        ${preset.temporary ? `<ha-icon class="temp-badge" icon="mdi:clock-outline"></ha-icon>` : ""}
       </button>
     `).join("");
     this._bindPresetButtons();
@@ -434,9 +440,11 @@ class Ha360CameraCard extends HTMLElement {
       this._showToast("Bitte einen Namen für die Ansicht eingeben.");
       return;
     }
-    this._presets.push({ name, icon, ...this._currentView() });
+    const preset = { name, icon, ...this._currentView(), temporary: true };
+    this._tempPresets.push(preset);
+    this._presets = [...this._permanentPresets, ...this._tempPresets].slice(0, 4);
     this._selectedPresetIndex = this._presets.length - 1;
-    this._writePresets();
+    this._writeTempPresets();
     this._renderPresetButtons();
     this._closePresetEditor();
     this._showToast(`Ansicht „${name}“ gespeichert.`);
@@ -453,8 +461,12 @@ class Ha360CameraCard extends HTMLElement {
       this._showToast("Bitte einen Namen für die Ansicht eingeben.");
       return;
     }
-    this._presets[index] = { name, icon, ...this._currentView() };
-    this._writePresets();
+    const preset = this._presets[index];
+    if (!preset.temporary) { this._showToast("Feste YAML-Ansichten können nur im Karteneditor geändert werden."); return; }
+    const tempIndex = index - this._permanentPresets.length;
+    this._tempPresets[tempIndex] = { name, icon, ...this._currentView(), temporary: true };
+    this._presets = [...this._permanentPresets, ...this._tempPresets].slice(0, 4);
+    this._writeTempPresets();
     this._renderPresetButtons();
     this._closePresetEditor();
     this._showToast(`Ansicht „${name}“ überschrieben.`);
@@ -466,10 +478,14 @@ class Ha360CameraCard extends HTMLElement {
       this._showToast("Bitte zuerst eine gespeicherte Ansicht auswählen.");
       return;
     }
-    const name = this._presets[index].name;
-    this._presets.splice(index, 1);
+    const preset = this._presets[index];
+    if (!preset.temporary) { this._showToast("Feste YAML-Ansichten können nur im Karteneditor gelöscht werden."); return; }
+    const name = preset.name;
+    const tempIndex = index - this._permanentPresets.length;
+    this._tempPresets.splice(tempIndex, 1);
+    this._presets = [...this._permanentPresets, ...this._tempPresets].slice(0, 4);
     this._selectedPresetIndex = undefined;
-    this._writePresets();
+    this._writeTempPresets();
     this._renderPresetButtons();
     if (this._presetNameInput) this._presetNameInput.value = "";
     if (this._presetIconPicker) this._presetIconPicker.value = "mdi:camera-marker";
@@ -1035,55 +1051,42 @@ class Ha360CameraCardEditor extends HTMLElement {
     if (!this._config) return;
     const checked = (key, fallback = true) =>
       (this._config[key] === undefined ? fallback : this._config[key]) ? "checked" : "";
+    const presets = Array.isArray(this._config.presets) ? this._config.presets.slice(0,4) : [];
+    const storageKey = this._config.storage_key || "unifi-ai360-view-card";
+    let tempPresets = [];
+    try { tempPresets = JSON.parse(localStorage.getItem(`${storageKey}:temp-presets`) || "[]"); } catch (_) {}
     this.innerHTML = `
       <style>
-        .editor { display: grid; gap: 12px; padding: 8px 0; }
-        label { display: grid; gap: 5px; font-size: 13px; }
-        input, select {
-          box-sizing: border-box; width: 100%; padding: 10px; border-radius: 8px;
-          border: 1px solid var(--divider-color); color: var(--primary-text-color);
-          background: var(--card-background-color);
-        }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-        .check { display: flex; align-items: center; gap: 8px; }
-        .check input { width: auto; }
-        small { color: var(--secondary-text-color); }
+        .editor{display:grid;gap:16px;padding:8px 0}.section{display:grid;gap:12px;padding:14px;border:1px solid var(--divider-color);border-radius:12px}
+        h3{margin:0;font-size:15px} label{display:grid;gap:5px;font-size:13px} input,select{box-sizing:border-box;width:100%;padding:10px;border-radius:8px;border:1px solid var(--divider-color);color:var(--primary-text-color);background:var(--card-background-color)}
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.check{display:flex;align-items:center;gap:8px}.check input{width:auto}.preset-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px;border:1px solid var(--divider-color);border-radius:10px}.preset-actions{grid-column:1/-1;display:flex;gap:8px}.preset-actions button,.import{padding:8px 12px;border:0;border-radius:8px;cursor:pointer}.danger{background:var(--error-color);color:white} small{color:var(--secondary-text-color)}
       </style>
       <div class="editor">
-        ${this._input("title", "Titel")}
-        ${this._input("whep_url", "WHEP-URL")}
-        <label>Kameraprofil
-          <select data-key="camera_profile">
-            ${[
-              ["generic", "Generic"],
-              ["unifi_ai360", "UniFi AI360"],
-              ["unifi_g6_pro_360", "UniFi G6 Pro 360"],
-              ["generic_circular_fisheye", "Generic circular fisheye"]
-            ].map(([value,label]) => `<option value="${value}" ${this._config.camera_profile === value ? "selected" : ""}>${label}</option>`).join("")}
-          </select>
-        </label>
-        <div class="grid">
-          ${this._number("height", "Höhe")}
-          ${this._number("fov", "FOV")}
-          ${this._number("yaw", "Yaw")}
-          ${this._number("pitch", "Pitch")}
-          ${this._number("roll", "Roll")}
-          ${this._number("step", "Schrittweite")}
+        <div class="section"><h3>Allgemein</h3>${this._input("title","Titel")}${this._input("whep_url","WHEP-URL")}
+          <label>Kameraprofil<select data-key="camera_profile">${[["generic","Generic"],["unifi_ai360","UniFi AI360"],["unifi_g6_pro_360","UniFi G6 Pro 360"],["generic_circular_fisheye","Generic circular fisheye"]].map(([v,l])=>`<option value="${v}" ${this._config.camera_profile===v?"selected":""}>${l}</option>`).join("")}</select></label>
+          <div class="grid">${this._number("height","Höhe")}${this._number("step","Schrittweite")}</div></div>
+        <div class="section"><h3>Home-Position</h3><small>Diese Werte verwendet die Home-Taste.</small><div class="grid">${this._number("yaw","Yaw")}${this._number("pitch","Pitch")}${this._number("roll","Roll")}${this._number("fov","FOV")}</div></div>
+        <div class="section"><h3>Darstellung und Bedienung</h3>
+          <label class="check"><input type="checkbox" data-key="controls" ${checked("controls")}>Bedienelemente anzeigen</label><label class="check"><input type="checkbox" data-key="keyboard" ${checked("keyboard")}>Tastatursteuerung</label><label class="check"><input type="checkbox" data-key="preset_editor" ${checked("preset_editor")}>Temporäre Ansicht in der Karte speichern</label><label class="check"><input type="checkbox" data-key="mirror" ${checked("mirror",false)}>Bild spiegeln</label><label class="check"><input type="checkbox" data-key="muted" ${checked("muted")}>Stream stummschalten</label></div>
+        <div class="section"><h3>Gespeicherte Ansichten</h3><small>Diese Ansichten werden in der Karten-YAML gespeichert.</small><div id="preset-list">${presets.map((p,i)=>this._presetRow(p,i)).join("")}</div>${presets.length<4?'<button class="import" data-add-preset>Neue feste Ansicht</button>':''}
+          ${tempPresets.length?`<h3>Temporäre Ansichten</h3><small>Mit „Übernehmen“ wird die Ansicht fest in der YAML-Konfiguration gespeichert.</small>${tempPresets.map((p,i)=>`<div class="preset-row"><b>${this._escape(p.name||`Ansicht ${i+1}`)}</b><ha-icon icon="${this._escape(p.icon||'mdi:camera-marker')}"></ha-icon><div class="preset-actions"><button data-import-temp="${i}">Übernehmen</button><button class="danger" data-delete-temp="${i}">Verwerfen</button></div></div>`).join('')}`:''}
         </div>
-        <label class="check"><input type="checkbox" data-key="controls" ${checked("controls")}>Bedienelemente anzeigen</label>
-        <label class="check"><input type="checkbox" data-key="keyboard" ${checked("keyboard")}>Tastatursteuerung</label>
-        <label class="check"><input type="checkbox" data-key="preset_editor" ${checked("preset_editor")}>Ansichten-Editor in der Karte anzeigen</label>
-        <label class="check"><input type="checkbox" data-key="mirror" ${checked("mirror", false)}>Bild spiegeln</label>
-        <label class="check"><input type="checkbox" data-key="muted" ${checked("muted")}>Stream stummschalten</label>
-        <small>Bis zu vier Ansichten werden direkt in der Karte gespeichert. Das Symbol wird über den Home-Assistant-Symbolwähler ausgewählt.</small>
       </div>`;
-    this.querySelectorAll("[data-key]").forEach((element) => {
-      element.addEventListener("change", () => this._change(element));
-      if (element.tagName === "INPUT" && element.type !== "checkbox") {
-        element.addEventListener("input", () => this._change(element));
-      }
-    });
+    this.querySelectorAll("[data-key]").forEach(el=>{el.addEventListener("change",()=>this._change(el));if(el.tagName==="INPUT"&&el.type!=="checkbox")el.addEventListener("input",()=>this._change(el));});
+    this.querySelectorAll('[data-preset-field]').forEach(el=>el.addEventListener('change',()=>this._updatePresetField(el)));
+    this.querySelectorAll('[data-delete-preset]').forEach(el=>el.addEventListener('click',()=>this._deletePermanentPreset(Number(el.dataset.deletePreset))));
+    this.querySelector('[data-add-preset]')?.addEventListener('click',()=>this._addPermanentPreset());
+    this.querySelectorAll('[data-import-temp]').forEach(el=>el.addEventListener('click',()=>this._importTempPreset(Number(el.dataset.importTemp),tempPresets)));
+    this.querySelectorAll('[data-delete-temp]').forEach(el=>el.addEventListener('click',()=>this._deleteTempPreset(Number(el.dataset.deleteTemp),tempPresets,storageKey)));
   }
+
+  _presetRow(preset,index){return `<div class="preset-row"><label>Name<input data-preset-field="name" data-preset-index="${index}" value="${this._escape(preset.name||'')}"></label><label>Symbol<ha-icon-picker data-preset-field="icon" data-preset-index="${index}" value="${this._escape(preset.icon||'mdi:camera-marker')}"></ha-icon-picker></label><label>Yaw<input type="number" data-preset-field="yaw" data-preset-index="${index}" value="${preset.yaw??0}"></label><label>Pitch<input type="number" data-preset-field="pitch" data-preset-index="${index}" value="${preset.pitch??0}"></label><label>Roll<input type="number" data-preset-field="roll" data-preset-index="${index}" value="${preset.roll??0}"></label><label>FOV<input type="number" data-preset-field="fov" data-preset-index="${index}" value="${preset.fov??95}"></label><div class="preset-actions"><button class="danger" data-delete-preset="${index}">Löschen</button></div></div>`}
+  _emit(config){this._config=config;this.dispatchEvent(new CustomEvent('config-changed',{detail:{config},bubbles:true,composed:true}));}
+  _updatePresetField(el){const config={...this._config,presets:[...(this._config.presets||[])]};const i=Number(el.dataset.presetIndex);config.presets[i]={...config.presets[i]};let v=el.value;if(el.type==='number')v=Number(v);config.presets[i][el.dataset.presetField]=v;this._emit(config)}
+  _deletePermanentPreset(i){const config={...this._config,presets:[...(this._config.presets||[])]};config.presets.splice(i,1);this._emit(config);this._render()}
+  _addPermanentPreset(){const config={...this._config,presets:[...(this._config.presets||[])]};if(config.presets.length>=4)return;config.presets.push({name:`Ansicht ${config.presets.length+1}`,icon:'mdi:camera-marker',yaw:Number(config.yaw||0),pitch:Number(config.pitch||0),roll:Number(config.roll||0),fov:Number(config.fov||95)});this._emit(config);this._render()}
+  _importTempPreset(i,temp){const config={...this._config,presets:[...(this._config.presets||[])]};if(config.presets.length>=4)return;const p={...temp[i]};delete p.temporary;config.presets.push(p);temp.splice(i,1);localStorage.setItem(`${config.storage_key||'unifi-ai360-view-card'}:temp-presets`,JSON.stringify(temp));this._emit(config);this._render()}
+  _deleteTempPreset(i,temp,key){temp.splice(i,1);localStorage.setItem(`${key}:temp-presets`,JSON.stringify(temp));this._render()}
 
   _input(key, label) {
     return `<label>${label}<input data-key="${key}" value="${this._escape(this._config[key] ?? "")}"></label>`;
@@ -1099,6 +1102,10 @@ class Ha360CameraCardEditor extends HTMLElement {
     else value = element.value;
     if (value === undefined || value === "") delete config[element.dataset.key];
     else config[element.dataset.key] = value;
+    if (element.dataset.key === "camera_profile") {
+      const profile = CAMERA_PROFILES[value] || CAMERA_PROFILES.generic;
+      Object.assign(config, profile);
+    }
     this._config = config;
     this.dispatchEvent(new CustomEvent("config-changed", {
       detail: { config }, bubbles: true, composed: true
