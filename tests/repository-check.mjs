@@ -25,5 +25,5 @@ if (!dist.includes('customElements.define("ha-360-camera-card"')) {
 }
 
 if (!dist.includes("ha-360-camera-card-editor")) throw new Error("Visual editor missing");
-if (!dist.includes("1.1.0")) throw new Error("Version 1.1.0 missing");
+if (!dist.includes("1.1.1")) throw new Error("Version 1.1.1 missing");
 console.log("Repository checks passed.");

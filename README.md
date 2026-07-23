@@ -2,12 +2,6 @@
 
 Interactive WebGL card for 360° and fisheye camera streams in Home Assistant.
 
-Displaying a fisheye or UniFi 360 camera as a distorted panoramic image
-<img width="300" height="300" alt="Ist" src="https://github.com/user-attachments/assets/d011fea7-2c63-4e52-b397-0ec10f2090d4" />
-
-A corrected camera image with the ability to change the viewing angle and zoom, and a feature to save user views 
-<img width="300" height="300" alt="Soll" src="https://github.com/user-attachments/assets/0cab273b-eb59-4fa6-bade-290dd9b2c1b1" />
-
 The first tested camera is the **UniFi AI360**. A preliminary profile for the
 **UniFi G6 Pro 360** is included. Generic circular fisheye streams can also be
 calibrated manually.
@@ -136,10 +130,9 @@ named_presets:
 
 Up to six named buttons are shown. The local quick presets `1` and `2` remain available.
 
-### Mini-compass and gestures
+### Gestures
 
 ```yaml
-minimap: true
 double_tap_home: true
 ```
 

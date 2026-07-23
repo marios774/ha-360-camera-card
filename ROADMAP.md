@@ -4,7 +4,6 @@
 
 - Visual Lovelace configuration editor
 - Named YAML presets and more than two quick-access buttons
-- Optional minimap/compass
 - Configurable control placement
 - Smoother animated view transitions
 - Pinch-to-zoom and double-tap home refinements

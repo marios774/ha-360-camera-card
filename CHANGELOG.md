@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.1.1 — 2026-07-23
+
+### Fixed
+- Keyboard control now works reliably after focusing the camera view
+- Control buttons no longer trigger the Home view through the double-click handler
+- Pointer gestures ignore all control buttons
+
+### Changed
+- Removed the mini-compass completely
+- Left/right controls now use Material Design undo/redo icons
+
 ## 1.1.0 — 2026-07-23
 
 ### Added

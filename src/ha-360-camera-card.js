@@ -1,4 +1,4 @@
-const HA360_VERSION = "1.1.0";
+const HA360_VERSION = "1.1.1";
 
 const CAMERA_PROFILES = {
   generic: {},
@@ -64,7 +64,6 @@ class Ha360CameraCard extends HTMLElement {
       mirror: false,
       controls: true,
       keyboard: true,
-      minimap: true,
       named_presets: {},
       double_tap_home: true,
       muted: true,
@@ -125,7 +124,6 @@ class Ha360CameraCard extends HTMLElement {
           <video playsinline ${this.config.muted ? "muted" : ""}></video>
           <div class="message">Stream wird geladen …</div>
           <div class="values-overlay" aria-live="polite"></div>
-          ${this.config.minimap ? `<div class="minimap" aria-label="Blickrichtung"><span class="north">N</span><span class="arrow"></span><span class="pitch"></span></div>` : ""}
           ${this.config.controls ? this._controlsHtml() : ""}
         </div>
       </ha-card>
@@ -138,8 +136,6 @@ class Ha360CameraCard extends HTMLElement {
     this._message = this.querySelector(".message");
     this._valuesOverlay = this.querySelector(".values-overlay");
     this._status = this.querySelector(".status");
-    this._minimap = this.querySelector(".minimap");
-    this._updateMinimap();
 
     this._bindControls();
     this._initWebGL();
@@ -177,9 +173,9 @@ class Ha360CameraCard extends HTMLElement {
     return `
       <div class="pad">
         <button type="button" data-action="up" aria-label="Nach oben">▲</button>
-        <button type="button" data-action="left" aria-label="Nach links">◀</button>
+        <button type="button" data-action="left" aria-label="Nach links" title="Nach links"><ha-icon icon="mdi:undo"></ha-icon></button>
         <button type="button" data-action="home" aria-label="Startansicht" title="Startansicht">●</button>
-        <button type="button" data-action="right" aria-label="Nach rechts">▶</button>
+        <button type="button" data-action="right" aria-label="Nach rechts" title="Nach rechts"><ha-icon icon="mdi:redo"></ha-icon></button>
         <button type="button" data-action="down" aria-label="Nach unten">▼</button>
       </div>
       <div class="presets">
@@ -243,31 +239,7 @@ class Ha360CameraCard extends HTMLElement {
         transform: translateY(0);
       }
 
-      .minimap {
-        position: absolute; top: 14px; right: 14px; width: 72px; height: 72px;
-        border-radius: 50%; border: 1px solid rgba(255,255,255,.45);
-        background: rgba(20,20,20,.58); color: white; backdrop-filter: blur(8px);
-        z-index: 2; pointer-events: none; box-sizing: border-box;
-        transition: opacity .18s ease;
-      }
-      .minimap .north {
-        position: absolute; top: 3px; left: 50%; transform: translateX(-50%);
-        font-size: 10px; font-weight: 700;
-      }
-      .minimap .arrow {
-        position: absolute; left: 50%; top: 50%; width: 2px; height: 24px;
-        background: currentColor; transform-origin: 50% 100%;
-        transform: translate(-50%,-100%) rotate(0deg);
-      }
-      .minimap .arrow::before {
-        content: ""; position: absolute; top: -5px; left: -4px;
-        border-left: 5px solid transparent; border-right: 5px solid transparent;
-        border-bottom: 8px solid currentColor;
-      }
-      .minimap .pitch {
-        position: absolute; left: 50%; bottom: 5px; transform: translateX(-50%);
-        font-size: 9px; opacity: .9;
-      }
+      ha-icon { --mdc-icon-size: 23px; pointer-events: none; }
       button {
         border: 0; border-radius: 50%; width: 42px; height: 42px;
         background: rgba(20,20,20,.65); color: white; font-size: 18px;
@@ -326,14 +298,6 @@ class Ha360CameraCard extends HTMLElement {
     this._showValuesOverlay(true);
   }
 
-  _updateMinimap() {
-    if (!this._minimap) return;
-    const arrow = this._minimap.querySelector(".arrow");
-    const pitch = this._minimap.querySelector(".pitch");
-    if (arrow) arrow.style.transform = `translate(-50%,-100%) rotate(${Number(this._yaw || 0)}deg)`;
-    if (pitch) pitch.textContent = `${Math.round(Number(this._pitch || 0))}°`;
-  }
-
   _bindControls() {
     this.querySelectorAll("button[data-preset-name]").forEach((button) => {
       button.addEventListener("click", (ev) => {
@@ -373,11 +337,13 @@ class Ha360CameraCard extends HTMLElement {
     this._activePointers = new Map();
     this._stage.addEventListener("dblclick", (ev) => {
       if (!this.config.double_tap_home) return;
+      if (ev.target.closest?.("button, .pad, .presets, .zoom")) return;
       ev.preventDefault();
       this._action("home");
     });
 
     this._stage.addEventListener("pointerdown", (ev) => {
+      if (ev.target.closest?.("button, .pad, .presets, .zoom")) return;
       this._activePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
       this._dragging = true;
       this._lastPointer = { x: ev.clientX, y: ev.clientY };
@@ -432,7 +398,10 @@ class Ha360CameraCard extends HTMLElement {
     }, { passive: false });
 
     this._onKeyDownBound = (ev) => {
-      if (!this.config.keyboard || document.activeElement !== this._stage) return;
+      if (!this.config.keyboard) return;
+      const active = this.getRootNode()?.activeElement || document.activeElement;
+      const stageFocused = active === this._stage || this._stage.matches(":focus-within");
+      if (!stageFocused && ev.currentTarget === window) return;
       const map = {
         ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
         "+": "zoom-in", "=": "zoom-in", "-": "zoom-out", "0": "home",
@@ -523,7 +492,6 @@ class Ha360CameraCard extends HTMLElement {
   }
 
   _showValuesOverlay(longDisplay = false) {
-    this._updateMinimap();
     if (!this._valuesOverlay) return;
 
     const yaw = Number(this._yaw.toFixed(1));
@@ -976,7 +944,6 @@ class Ha360CameraCardEditor extends HTMLElement {
         </div>
         <label class="check"><input type="checkbox" data-key="controls" ${checked("controls")}>Bedienelemente anzeigen</label>
         <label class="check"><input type="checkbox" data-key="keyboard" ${checked("keyboard")}>Tastatursteuerung</label>
-        <label class="check"><input type="checkbox" data-key="minimap" ${checked("minimap")}>Mini-Kompass anzeigen</label>
         <label class="check"><input type="checkbox" data-key="mirror" ${checked("mirror", false)}>Bild spiegeln</label>
         <label class="check"><input type="checkbox" data-key="muted" ${checked("muted")}>Stream stummschalten</label>
         <small>Erweiterte Fisheye-Kalibrierung und benannte Ansichten bleiben im YAML-Editor verfügbar.</small>

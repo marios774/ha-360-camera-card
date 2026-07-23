@@ -5,7 +5,6 @@ Version 1.1 is compatible with existing 1.0 YAML configurations.
 ## New options
 
 ```yaml
-minimap: true
 double_tap_home: true
 named_presets:
   Garage:
