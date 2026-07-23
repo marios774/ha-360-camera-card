@@ -1,4 +1,4 @@
-const HA360_VERSION = "1.0.0";
+const HA360_VERSION = "1.1.0";
 
 const CAMERA_PROFILES = {
   generic: {},
@@ -10,6 +10,13 @@ const CAMERA_PROFILES = {
     center_y: 0.5,
     roll: 180,
     mirror: true,
+  },
+  generic_circular_fisheye: {
+    projection: "hemisphere",
+    fisheye_fov: 180,
+    circle_radius: 0.5,
+    center_x: 0.5,
+    center_y: 0.5,
   },
   unifi_g6_pro_360: {
     projection: "hemisphere",
@@ -57,6 +64,9 @@ class Ha360CameraCard extends HTMLElement {
       mirror: false,
       controls: true,
       keyboard: true,
+      minimap: true,
+      named_presets: {},
+      double_tap_home: true,
       muted: true,
       autoplay: true,
       ...selectedProfile,
@@ -115,6 +125,7 @@ class Ha360CameraCard extends HTMLElement {
           <video playsinline ${this.config.muted ? "muted" : ""}></video>
           <div class="message">Stream wird geladen …</div>
           <div class="values-overlay" aria-live="polite"></div>
+          ${this.config.minimap ? `<div class="minimap" aria-label="Blickrichtung"><span class="north">N</span><span class="arrow"></span><span class="pitch"></span></div>` : ""}
           ${this.config.controls ? this._controlsHtml() : ""}
         </div>
       </ha-card>
@@ -127,6 +138,8 @@ class Ha360CameraCard extends HTMLElement {
     this._message = this.querySelector(".message");
     this._valuesOverlay = this.querySelector(".values-overlay");
     this._status = this.querySelector(".status");
+    this._minimap = this.querySelector(".minimap");
+    this._updateMinimap();
 
     this._bindControls();
     this._initWebGL();
@@ -173,6 +186,7 @@ class Ha360CameraCard extends HTMLElement {
         <button type="button" data-action="home" aria-label="Startansicht" title="Startansicht">H</button>
         <button type="button" data-action="preset-1" aria-label="Ansicht 1" title="Antippen: aufrufen · lange drücken: speichern">1</button>
         <button type="button" data-action="preset-2" aria-label="Ansicht 2" title="Antippen: aufrufen · lange drücken: speichern">2</button>
+        ${this._namedPresetButtonsHtml()}
         <button type="button" data-action="show-values" aria-label="Aktuelle Ansichtswerte" title="Aktuelle Werte anzeigen">i</button>
       </div>
       <div class="zoom">
@@ -228,6 +242,32 @@ class Ha360CameraCard extends HTMLElement {
         opacity: 1;
         transform: translateY(0);
       }
+
+      .minimap {
+        position: absolute; top: 14px; right: 14px; width: 72px; height: 72px;
+        border-radius: 50%; border: 1px solid rgba(255,255,255,.45);
+        background: rgba(20,20,20,.58); color: white; backdrop-filter: blur(8px);
+        z-index: 2; pointer-events: none; box-sizing: border-box;
+        transition: opacity .18s ease;
+      }
+      .minimap .north {
+        position: absolute; top: 3px; left: 50%; transform: translateX(-50%);
+        font-size: 10px; font-weight: 700;
+      }
+      .minimap .arrow {
+        position: absolute; left: 50%; top: 50%; width: 2px; height: 24px;
+        background: currentColor; transform-origin: 50% 100%;
+        transform: translate(-50%,-100%) rotate(0deg);
+      }
+      .minimap .arrow::before {
+        content: ""; position: absolute; top: -5px; left: -4px;
+        border-left: 5px solid transparent; border-right: 5px solid transparent;
+        border-bottom: 8px solid currentColor;
+      }
+      .minimap .pitch {
+        position: absolute; left: 50%; bottom: 5px; transform: translateX(-50%);
+        font-size: 9px; opacity: .9;
+      }
       button {
         border: 0; border-radius: 50%; width: 42px; height: 42px;
         background: rgba(20,20,20,.65); color: white; font-size: 18px;
@@ -246,7 +286,11 @@ class Ha360CameraCard extends HTMLElement {
       .pad [data-action="down"] { grid-column: 2; grid-row: 3; }
       .presets {
         position: absolute; left: 14px; top: 14px;
-        display: flex; gap: 8px;
+        display: flex; flex-wrap: wrap; gap: 8px;
+        max-width: calc(100% - 105px);
+      }
+      .presets button.named {
+        width: auto; min-width: 42px; padding: 0 12px; border-radius: 22px;
       }
       .presets button { font-size: 14px; font-weight: 600; }
       .zoom {
@@ -262,7 +306,42 @@ class Ha360CameraCard extends HTMLElement {
     this.prepend(style);
   }
 
+
+  _namedPresetButtonsHtml() {
+    return Object.keys(this.config.named_presets || {})
+      .slice(0, 6)
+      .map((name) => `<button type="button" class="named" data-preset-name="${this._escape(name)}" title="Ansicht ${this._escape(name)}">${this._escape(name)}</button>`)
+      .join("");
+  }
+
+  _loadNamedPreset(name) {
+    const preset = this.config.named_presets?.[name];
+    if (!preset || typeof preset !== "object") return;
+    if (preset.yaw !== undefined) this._yaw = Number(preset.yaw);
+    if (preset.pitch !== undefined) this._pitch = Number(preset.pitch);
+    if (preset.roll !== undefined) this._roll = Number(preset.roll);
+    if (preset.fov !== undefined) this._fov = Number(preset.fov);
+    this._fov = Math.min(150, Math.max(25, this._fov));
+    this._clampView();
+    this._showValuesOverlay(true);
+  }
+
+  _updateMinimap() {
+    if (!this._minimap) return;
+    const arrow = this._minimap.querySelector(".arrow");
+    const pitch = this._minimap.querySelector(".pitch");
+    if (arrow) arrow.style.transform = `translate(-50%,-100%) rotate(${Number(this._yaw || 0)}deg)`;
+    if (pitch) pitch.textContent = `${Math.round(Number(this._pitch || 0))}°`;
+  }
+
   _bindControls() {
+    this.querySelectorAll("button[data-preset-name]").forEach((button) => {
+      button.addEventListener("click", (ev) => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        this._loadNamedPreset(button.dataset.presetName);
+      });
+    });
     this.querySelectorAll("button[data-action]").forEach((button) => {
       let holdTimer = null;
       let longPressed = false;
@@ -291,7 +370,15 @@ class Ha360CameraCard extends HTMLElement {
       });
     });
 
+    this._activePointers = new Map();
+    this._stage.addEventListener("dblclick", (ev) => {
+      if (!this.config.double_tap_home) return;
+      ev.preventDefault();
+      this._action("home");
+    });
+
     this._stage.addEventListener("pointerdown", (ev) => {
+      this._activePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
       this._dragging = true;
       this._lastPointer = { x: ev.clientX, y: ev.clientY };
       this._stage.setPointerCapture(ev.pointerId);
@@ -299,6 +386,20 @@ class Ha360CameraCard extends HTMLElement {
     });
 
     this._stage.addEventListener("pointermove", (ev) => {
+      if (this._activePointers.has(ev.pointerId)) {
+        this._activePointers.set(ev.pointerId, { x: ev.clientX, y: ev.clientY });
+        if (this._activePointers.size === 2) {
+          const points = [...this._activePointers.values()];
+          const distance = Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y);
+          if (this._lastPinchDistance !== undefined) {
+            this._fov -= (distance - this._lastPinchDistance) * 0.12;
+            this._fov = Math.min(150, Math.max(25, this._fov));
+            this._showValuesOverlay(false);
+          }
+          this._lastPinchDistance = distance;
+          return;
+        }
+      }
       if (!this._dragging || !this._lastPointer) return;
       const dx = ev.clientX - this._lastPointer.x;
       const dy = ev.clientY - this._lastPointer.y;
@@ -314,9 +415,11 @@ class Ha360CameraCard extends HTMLElement {
       this._showValuesOverlay(false);
     });
 
-    const stopDrag = () => {
+    const stopDrag = (ev) => {
       this._dragging = false;
       this._lastPointer = null;
+      if (ev?.pointerId !== undefined) this._activePointers.delete(ev.pointerId);
+      if (this._activePointers.size < 2) this._lastPinchDistance = undefined;
     };
     this._stage.addEventListener("pointerup", stopDrag);
     this._stage.addEventListener("pointercancel", stopDrag);
@@ -333,7 +436,7 @@ class Ha360CameraCard extends HTMLElement {
       const map = {
         ArrowUp: "up", ArrowDown: "down", ArrowLeft: "left", ArrowRight: "right",
         "+": "zoom-in", "=": "zoom-in", "-": "zoom-out", "0": "home",
-        "i": "show-values", "I": "show-values"
+        "i": "show-values", "I": "show-values", "h": "home", "H": "home"
       };
       if (map[ev.key]) {
         ev.preventDefault();
@@ -406,7 +509,6 @@ class Ha360CameraCard extends HTMLElement {
         this._copyTextFallback(yaml);
       }
       this._showValuesOverlay(true);
-      this._showValuesOverlay(true);
         this._showToast(`${presetName} als YAML in die Zwischenablage kopiert.`);
       console.info("UniFi AI 360 View Card – kopiertes YAML:\n" + yaml);
     } catch (err) {
@@ -421,6 +523,7 @@ class Ha360CameraCard extends HTMLElement {
   }
 
   _showValuesOverlay(longDisplay = false) {
+    this._updateMinimap();
     if (!this._valuesOverlay) return;
 
     const yaw = Number(this._yaw.toFixed(1));
@@ -804,10 +907,14 @@ fov: ${fov}`;
       .replaceAll("'", "&#039;");
   }
 
+  static getConfigElement() {
+    return document.createElement("ha-360-camera-card-editor");
+  }
+
   static getStubConfig() {
     return {
-      title: "UniFi AI 360",
-      type: "custom:unifi-ai360-view-card",
+      title: "360° Camera",
+      type: "custom:ha-360-camera-card",
       whep_url: "https://HOME-ASSISTANT-ODER-GO2RTC/api/webrtc?src=ai360",
       height: 520,
       fisheye_fov: 360,
@@ -819,6 +926,98 @@ fov: ${fov}`;
 }
 
 console.info("UniFi AI 360 View Card v0.2.0");
+
+class Ha360CameraCardEditor extends HTMLElement {
+  set hass(hass) { this._hass = hass; }
+
+  setConfig(config) {
+    this._config = { ...config };
+    this._render();
+  }
+
+  _render() {
+    if (!this._config) return;
+    const checked = (key, fallback = true) =>
+      (this._config[key] === undefined ? fallback : this._config[key]) ? "checked" : "";
+    this.innerHTML = `
+      <style>
+        .editor { display: grid; gap: 12px; padding: 8px 0; }
+        label { display: grid; gap: 5px; font-size: 13px; }
+        input, select {
+          box-sizing: border-box; width: 100%; padding: 10px; border-radius: 8px;
+          border: 1px solid var(--divider-color); color: var(--primary-text-color);
+          background: var(--card-background-color);
+        }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .check { display: flex; align-items: center; gap: 8px; }
+        .check input { width: auto; }
+        small { color: var(--secondary-text-color); }
+      </style>
+      <div class="editor">
+        ${this._input("title", "Titel")}
+        ${this._input("whep_url", "WHEP-URL")}
+        <label>Kameraprofil
+          <select data-key="camera_profile">
+            ${[
+              ["generic", "Generic"],
+              ["unifi_ai360", "UniFi AI360"],
+              ["unifi_g6_pro_360", "UniFi G6 Pro 360"],
+              ["generic_circular_fisheye", "Generic circular fisheye"]
+            ].map(([value,label]) => `<option value="${value}" ${this._config.camera_profile === value ? "selected" : ""}>${label}</option>`).join("")}
+          </select>
+        </label>
+        <div class="grid">
+          ${this._number("height", "Höhe")}
+          ${this._number("fov", "FOV")}
+          ${this._number("yaw", "Yaw")}
+          ${this._number("pitch", "Pitch")}
+          ${this._number("roll", "Roll")}
+          ${this._number("step", "Schrittweite")}
+        </div>
+        <label class="check"><input type="checkbox" data-key="controls" ${checked("controls")}>Bedienelemente anzeigen</label>
+        <label class="check"><input type="checkbox" data-key="keyboard" ${checked("keyboard")}>Tastatursteuerung</label>
+        <label class="check"><input type="checkbox" data-key="minimap" ${checked("minimap")}>Mini-Kompass anzeigen</label>
+        <label class="check"><input type="checkbox" data-key="mirror" ${checked("mirror", false)}>Bild spiegeln</label>
+        <label class="check"><input type="checkbox" data-key="muted" ${checked("muted")}>Stream stummschalten</label>
+        <small>Erweiterte Fisheye-Kalibrierung und benannte Ansichten bleiben im YAML-Editor verfügbar.</small>
+      </div>`;
+    this.querySelectorAll("[data-key]").forEach((element) => {
+      element.addEventListener("change", () => this._change(element));
+      if (element.tagName === "INPUT" && element.type !== "checkbox") {
+        element.addEventListener("input", () => this._change(element));
+      }
+    });
+  }
+
+  _input(key, label) {
+    return `<label>${label}<input data-key="${key}" value="${this._escape(this._config[key] ?? "")}"></label>`;
+  }
+  _number(key, label) {
+    return `<label>${label}<input type="number" data-key="${key}" value="${this._config[key] ?? ""}"></label>`;
+  }
+  _change(element) {
+    const config = { ...this._config };
+    let value;
+    if (element.type === "checkbox") value = element.checked;
+    else if (element.type === "number") value = element.value === "" ? undefined : Number(element.value);
+    else value = element.value;
+    if (value === undefined || value === "") delete config[element.dataset.key];
+    else config[element.dataset.key] = value;
+    this._config = config;
+    this.dispatchEvent(new CustomEvent("config-changed", {
+      detail: { config }, bubbles: true, composed: true
+    }));
+  }
+  _escape(value) {
+    return String(value).replaceAll("&", "&amp;").replaceAll('"', "&quot;")
+      .replaceAll("<", "&lt;").replaceAll(">", "&gt;");
+  }
+}
+
+if (!customElements.get("ha-360-camera-card-editor")) {
+  customElements.define("ha-360-camera-card-editor", Ha360CameraCardEditor);
+}
+
 if (!customElements.get("ha-360-camera-card")) {
   customElements.define("ha-360-camera-card", Ha360CameraCard);
 }

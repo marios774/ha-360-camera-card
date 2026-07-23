@@ -113,3 +113,34 @@ private Home Assistant configuration.
 ## License
 
 MIT
+
+
+## Version 1.1
+
+### Named views
+
+```yaml
+named_presets:
+  Garage:
+    yaw: 48
+    pitch: 47
+    roll: 180
+    fov: 82
+
+  Driveway:
+    yaw: -65
+    pitch: 51
+    roll: 180
+    fov: 74
+```
+
+Up to six named buttons are shown. The local quick presets `1` and `2` remain available.
+
+### Mini-compass and gestures
+
+```yaml
+minimap: true
+double_tap_home: true
+```
+
+Two-finger pinch changes the field of view. Double-click or double-tap restores the configured home view. A visual Lovelace editor is available for the common settings.

@@ -1,21 +1,4 @@
-<!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>Home Assistant 360 Camera Card</title>
-  <style>
-    body{font-family:system-ui,sans-serif;max-width:900px;margin:40px auto;padding:0 20px;line-height:1.6}
-    code,pre{background:#f3f4f6;border-radius:6px}pre{padding:16px;overflow:auto}
-  </style>
-</head>
-<body>
-  <h1>Home Assistant 360 Camera Card</h1>
-  <p>Interactive WebGL viewer for 360° and fisheye streams in Home Assistant.</p>
-  <p>See the repository README for installation and configuration.</p>
-  <h2>Basic YAML</h2>
-  <pre><code>type: custom:ha-360-camera-card
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>HA 360 Camera Card</title><style>body{font-family:system-ui,sans-serif;background:#0b1220;color:#eef2ff;margin:0}.wrap{max-width:960px;margin:auto;padding:64px 24px}h1{font-size:clamp(2.2rem,6vw,4.5rem);line-height:1;margin:.2em 0}p{font-size:1.15rem;line-height:1.65;color:#cbd5e1}.badge{display:inline-block;padding:6px 10px;border:1px solid #475569;border-radius:999px}.card{background:#111b2e;border:1px solid #263552;border-radius:18px;padding:24px;margin-top:30px}pre{overflow:auto;background:#050914;padding:18px;border-radius:12px}a{color:#7dd3fc}.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px}.feature{background:#111b2e;border:1px solid #263552;border-radius:14px;padding:18px}</style></head><body><main class="wrap"><span class="badge">Version 1.1.0</span><h1>Home Assistant 360 Camera Card</h1><p>Interaktive WebGL-Ansicht für 360°- und Fisheye-Kameras in Home Assistant – mit virtuellem PTZ, WebRTC/go2rtc, Presets, Mini-Kompass und visuellem Editor.</p><div class="grid"><div class="feature"><b>Virtuelles PTZ</b><p>Schwenken, neigen, drehen und zoomen ohne mechanische Kamerabewegung.</p></div><div class="feature"><b>WHEP/WebRTC</b><p>Niedrige Latenz über go2rtc.</p></div><div class="feature"><b>Version 1.1</b><p>Editor, Mini-Kompass, benannte Ansichten und verbesserte Touch-Gesten.</p></div></div><section class="card"><h2>Schnellstart</h2><pre><code>type: custom:ha-360-camera-card
 camera_profile: unifi_ai360
-whep_url: http://go2rtc:1984/api/webrtc?src=ai360</code></pre>
-</body>
-</html>
+whep_url: http://GO2RTC:1984/api/webrtc?src=ai360
+minimap: true</code></pre><p><a href="https://github.com/marios774/ha-360-camera-card">Repository und vollständige Dokumentation auf GitHub</a></p></section></main></body></html>

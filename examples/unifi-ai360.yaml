@@ -10,3 +10,12 @@ fov: 90
 control_invert_x: true
 control_invert_y: true
 storage_key: ai360-garden
+
+minimap: true
+double_tap_home: true
+named_presets:
+  Garage:
+    yaw: 48
+    pitch: 47
+    roll: 180
+    fov: 82
