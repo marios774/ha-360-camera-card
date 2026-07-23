@@ -137,3 +137,16 @@ double_tap_home: true
 ```
 
 Two-finger pinch changes the field of view. Double-click or double-tap restores the configured home view. A visual Lovelace editor is available for the common settings.
+
+## Preset editor in 1.1.2
+
+The card can store up to four views directly from the live camera view. Each
+view has a name and an MDI icon selected with Home Assistant's icon picker.
+Only the icon is shown in the card, and buttons are created only for saved
+views.
+
+```yaml
+preset_editor: true
+max_presets: 4
+storage_key: ai360-garten
+```

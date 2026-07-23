@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.1.2 — 2026-07-23
+
+### Added
+- Preset editor directly inside the camera card
+- Name and Home Assistant MDI icon picker for each preset
+- Save, overwrite and delete actions
+- Up to four browser-local presets
+- Preset buttons show only the selected icon
+- Empty preset slots are hidden automatically
+
+### Changed
+- Removed numbered preset buttons and YAML named preset buttons
+- Preset icons replace names and numbers in the camera overlay
+
 ## 1.1.1 — 2026-07-23
 
 ### Fixed

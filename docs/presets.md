@@ -1,40 +1,15 @@
-# Presets and YAML export
+# Presets
 
-## Home view
+Version 1.1.2 manages presets directly in the camera card.
 
-The home view is defined by:
+1. Move the camera to the required view.
+2. Select the bookmark-edit button.
+3. Enter a name.
+4. Choose an MDI icon using Home Assistant's icon picker.
+5. Select **Speichern**.
 
-```yaml
-yaw: 0
-pitch: 55
-roll: 180
-fov: 90
-```
+Up to four presets can be stored. Only saved presets appear in the card, and
+the card displays only their icons. Select an icon to recall the view.
 
-The center button, `H` and keyboard key `0` restore these values.
-
-## Local presets
-
-- Short press on `1` or `2`: load
-- Long press on `1` or `2`: save
-
-Local presets are stored in the current browser/app using `localStorage`.
-Use a different `storage_key` for every camera.
-
-## YAML export
-
-Press `i` to copy the current view:
-
-```yaml
-preset_XX:
-  yaw: 48
-  pitch: 47
-  roll: 180
-  fov: 82
-```
-
-Change the key with:
-
-```yaml
-clipboard_preset_name: preset_driveway
-```
+Select an existing preset before using **Überschreiben** or **Löschen**.
+Presets are stored locally in the browser using the configured `storage_key`.
