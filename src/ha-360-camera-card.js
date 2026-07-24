@@ -1,4 +1,4 @@
-const HA360_VERSION = "1.2.0";
+const HA360_VERSION = "1.2.1";
 
 const CAMERA_PROFILES = {
   generic: {},
@@ -649,35 +649,47 @@ class Ha360CameraCard extends HTMLElement {
 
   _mountingTransform() {
     const mode = String(this.config.mounting_mode || "ceiling");
-    const baseRotation = {
+
+    // Angle between the normal (downward-facing) control axis and the
+    // camera installation plane. 0° keeps the proven normal controls,
+    // 90° changes horizontal input into a pan around an axis perpendicular
+    // to the optical axis, and 180° represents an upward-facing camera.
+    const installationTilt = {
       ceiling: 0,
+      down: 0,
+      up: 180,
       wall: 90,
-      roof: 0,
       pole: 90,
-      custom: 0,
+      roof: Number(this.config.mounting_tilt || 0),
+      custom: Number(this.config.mounting_pitch || 0),
     }[mode] ?? 0;
 
+    // Rotation describes how the camera housing is turned in its mounting
+    // plane. In custom mode yaw and roll are additional control-axis offsets.
     const customRotation = mode === "custom"
       ? Number(this.config.mounting_yaw || 0) + Number(this.config.mounting_roll || 0)
       : 0;
-    const rotation = baseRotation + Number(this.config.mounting_rotation || 0) + customRotation;
-    const tilt = mode === "roof"
-      ? Number(this.config.mounting_tilt || 0)
-      : mode === "custom" ? Number(this.config.mounting_pitch || 0) : 0;
+    const rotation = Number(this.config.mounting_rotation || 0) + customRotation;
 
-    return { rotation, tilt };
+    return { installationTilt, rotation };
   }
 
   _transformControlDelta(horizontal, vertical) {
-    const { rotation, tilt } = this._mountingTransform();
-    const angle = this._deg(rotation);
-    const tiltScale = Math.max(0.25, Math.abs(Math.cos(this._deg(tilt))));
-    const scaledVertical = vertical * tiltScale;
+    const { installationTilt, rotation } = this._mountingTransform();
 
-    return {
-      yaw: horizontal * Math.cos(angle) - scaledVertical * Math.sin(angle),
-      pitch: horizontal * Math.sin(angle) + scaledVertical * Math.cos(angle),
-    };
+    // First tilt both logical control axes with the physical camera axis.
+    // This is the important difference from v1.2.0: roof tilt no longer only
+    // changes sensitivity; it continuously rotates the actual yaw/pitch axes.
+    const tiltAngle = this._deg(installationTilt);
+    let yaw = horizontal * Math.cos(tiltAngle) - vertical * Math.sin(tiltAngle);
+    let pitch = horizontal * Math.sin(tiltAngle) + vertical * Math.cos(tiltAngle);
+
+    // Then account for a 0/90/180/270° rotation of the camera in its plane.
+    const rotationAngle = this._deg(rotation);
+    const rotatedYaw = yaw * Math.cos(rotationAngle) - pitch * Math.sin(rotationAngle);
+    const rotatedPitch = yaw * Math.sin(rotationAngle) + pitch * Math.cos(rotationAngle);
+
+    return { yaw: rotatedYaw, pitch: rotatedPitch };
   }
 
   async _copyCurrentValuesAsYaml() {
@@ -1132,7 +1144,8 @@ class Ha360CameraCardEditor extends HTMLElement {
     const mode = this._config.mounting_mode || "ceiling";
     const rotation = Number(this._config.mounting_rotation || 0);
     const modes = [
-      ["ceiling", "Decke / über Kopf"],
+      ["ceiling", "Nach unten / normale Montage"],
+      ["up", "Nach oben"],
       ["wall", "Wand"],
       ["roof", "Dach / Schräge"],
       ["pole", "Mast"],
@@ -1143,14 +1156,14 @@ class Ha360CameraCardEditor extends HTMLElement {
       : mode === "custom"
         ? `<div class="grid">${this._number("mounting_yaw", "Montage-Yaw")}${this._number("mounting_pitch", "Montage-Pitch")}${this._number("mounting_roll", "Montage-Roll")}</div>`
         : "";
-    const symbols = { ceiling: "⌄📷", wall: "📷→", roof: "╱📷", pole: "│📷", custom: "📷" };
+    const symbols = { ceiling: "⌄📷", down: "⌄📷", up: "📷⌃", wall: "📷→", roof: "╱📷", pole: "│📷", custom: "📷" };
     return `<div class="section"><h3>Kameramontage</h3>
       <small>Passt Maus-, Touch-, Tastatur- und Buttonsteuerung an die Einbaulage an. Die Bildkalibrierung bleibt unverändert.</small>
       <label>Installation<select data-key="mounting_mode">${modes.map(([v,l])=>`<option value="${v}" ${mode===v?"selected":""}>${l}</option>`).join("")}</select></label>
       <label>Drehung<select data-key="mounting_rotation">${[0,90,180,270].map(v=>`<option value="${v}" ${rotation===v?"selected":""}>${v}°</option>`).join("")}</select></label>
       ${modeFields}
       <div class="mounting-preview" data-mounting-preview style="--mount-rotation:${rotation}deg"><span class="camera">${symbols[mode] || "📷"}</span></div>
-      <div class="mounting-note">Die Pfeilrichtung bleibt aus Sicht des Benutzers logisch, unabhängig von der Kameralage.</div>
+      <div class="mounting-note">Die Steuerachsen werden entsprechend der optischen Kameraachse gekippt. Die normale Montage nach unten bleibt unverändert.</div>
     </div>`;
   }
 

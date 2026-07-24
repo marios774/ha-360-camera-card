@@ -11,3 +11,15 @@ inside the video.
 | `i` | Copy YAML and show values |
 
 Mouse/touch dragging changes the view. The mouse wheel changes zoom.
+
+## Mounting-dependent axes (v1.2.1)
+
+The card transforms all direction input through the selected physical mounting orientation:
+
+- `ceiling` / `down`: normal downward-facing behavior
+- `up`: upward-facing camera, axes rotated by 180°
+- `wall` / `pole`: control plane tilted by 90°
+- `roof`: control plane tilted by `mounting_tilt`
+- `custom`: uses mounting pitch plus mounting yaw, roll and rotation
+
+Mouse, touch, keyboard and direction buttons use the same transformation.

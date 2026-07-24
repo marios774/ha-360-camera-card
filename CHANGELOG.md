@@ -1,148 +1,151 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## v1.2.1
+
+# 🇬🇧 English
+
+## 🐞 Fixed
+
+### Mounting-dependent control axes
+
+The mounting modes now affect the actual movement axes instead of only changing control sensitivity.
+
+- **Downward / normal mounting:** Existing control behavior remains unchanged.
+- **Upward mounting:** The control axes are rotated by 180° relative to the normal mounting.
+- **Wall mounting:** Horizontal movement pans around an axis positioned 90° to the camera's optical axis.
+- **Sloped mounting:** The control axes are continuously tilted by the configured mounting angle.
+- **Pole mounting:** Uses the same 90° axis orientation as wall mounting.
+- **Custom mounting:** Mounting pitch, yaw, roll and rotation are combined to transform the control axes.
+
+The same transformation is used for mouse, touch, keyboard and on-screen direction buttons.
+
+## ✨ Added
+
+- Added a separate **Upward** mounting option.
+- Renamed the default option to **Downward / normal mounting** for clarity.
+
+## 🔄 Compatibility
+
+The default downward-facing mounting keeps the previous behavior. Existing configurations using `mounting_mode: ceiling` remain compatible.
 
 ---
 
-# v1.2.0
+# 🇩🇪 Deutsch
 
-## 🇬🇧 English
+## 🐞 Fehlerbehebungen
 
-### ✨ New Features
+### Von der Montagelage abhängige Steuerachsen
 
-#### Camera Installation
+Die Montagearten wirken sich jetzt auf die tatsächlichen Bewegungsachsen aus und verändern nicht mehr lediglich die Empfindlichkeit der Bedienung.
 
-A completely new installation concept has been introduced.
+- **Nach unten / normale Montage:** Das bisherige Bedienverhalten bleibt unverändert.
+- **Nach oben:** Die Steuerachsen werden gegenüber der normalen Montage um 180° gedreht.
+- **Wandmontage:** Die horizontale Bewegung schwenkt um eine Achse, die 90° zur optischen Kameraachse liegt.
+- **Schräge Montage:** Die Steuerachsen werden stufenlos um den eingestellten Montagewinkel gekippt.
+- **Mastmontage:** Verwendet wie die Wandmontage eine um 90° geneigte Steuerachse.
+- **Benutzerdefiniert:** Montage-Pitch, -Yaw, -Roll und Drehung werden gemeinsam zur Transformation der Steuerachsen verwendet.
 
-Instead of manually configuring control inversion, users can now simply select how the camera is mounted.
+Dieselbe Transformation gilt für Maus, Touch, Tastatur und die Richtungstasten auf der Karte.
 
-Supported installation types:
+## ✨ Neu
 
-- Ceiling
+- Separate Montageoption **Nach oben** ergänzt.
+- Die Standardoption wurde zur besseren Verständlichkeit in **Nach unten / normale Montage** umbenannt.
+
+## 🔄 Kompatibilität
+
+Bei der normalen, nach unten gerichteten Montage bleibt das bisherige Verhalten erhalten. Bestehende Konfigurationen mit `mounting_mode: ceiling` bleiben kompatibel.
+
+---
+
+## v1.2.0
+
+# 🇬🇧 English
+
+## ✨ New
+
+### Smart Camera Installation
+
+The visual card editor now includes a dedicated **Camera mounting** section. The card can adapt its controls to the physical installation of the camera.
+
+Available installation modes:
+
+- Ceiling / overhead
 - Wall
-- Sloped roof
+- Roof / sloped surface
 - Pole
 - Custom
 
-#### Automatic Control Orientation
+Depending on the selected mode, the editor provides:
 
-Mouse, touch, keyboard and on-screen controls are automatically adapted to the selected installation type.
+- Camera rotation: 0°, 90°, 180° or 270°
+- Tilt angle for sloped mounting
+- Custom mounting yaw, pitch and roll
+- A visual mounting preview
 
-No manual inversion settings are required anymore.
+The selected installation affects:
 
-#### Installation Settings
+- Mouse dragging
+- Touch gestures
+- Keyboard navigation
+- Direction buttons
 
-New configuration options:
+Camera calibration and the selected camera profile remain independent from the mounting configuration.
 
-- Mounting mode
-- Rotation (0°, 90°, 180°, 270°)
-- Roof tilt angle
-- Custom yaw, pitch and roll
+## 🔄 Compatibility
 
-#### Visual Editor
+Existing configurations remain compatible. Cards without mounting settings use the default ceiling installation with 0° rotation.
 
-The Lovelace editor now includes a dedicated **Camera Installation** section for easy configuration.
-
----
-
-### 🚀 Improvements
-
-- Improved camera orientation handling
-- Better control behavior for non-standard installations
-- Cleaner editor layout
-- Improved configuration structure
+The existing `control_invert_x` and `control_invert_y` options continue to work for advanced or legacy configurations.
 
 ---
 
-### 🐞 Fixed
+# 🇩🇪 Deutsch
 
-- Improved control consistency
-- Better handling of camera orientation
-- Minor UI improvements
-- Various bug fixes
+## ✨ Neu
 
----
+### Intelligente Kameramontage
 
-### 🔄 Compatibility
+Der visuelle Karteneditor enthält jetzt einen eigenen Bereich **Kameramontage**. Die Karte kann ihre Bedienung an die tatsächliche Einbaulage der Kamera anpassen.
 
-This release is fully backwards compatible.
+Verfügbare Montagearten:
 
-Existing dashboards continue to work without any configuration changes.
-
----
-
-## 🇩🇪 Deutsch
-
-### ✨ Neue Funktionen
-
-#### Kameramontage
-
-Es wurde ein komplett neues Montagekonzept eingeführt.
-
-Anstatt Maus- oder Touchsteuerung manuell invertieren zu müssen, kann jetzt einfach die tatsächliche Montagelage der Kamera ausgewählt werden.
-
-Unterstützte Montagearten:
-
-- Decke
+- Decke / über Kopf
 - Wand
-- Schräger Dachüberstand
+- Dach / schräge Fläche
 - Mast
 - Benutzerdefiniert
 
-#### Automatische Bedienung
+Abhängig von der gewählten Montageart stehen folgende Einstellungen zur Verfügung:
 
-Maus-, Touch-, Tastatur- und Bildschirmsteuerung passen sich automatisch an die gewählte Montageart an.
+- Kameradrehung: 0°, 90°, 180° oder 270°
+- Neigungswinkel bei schräger Montage
+- Benutzerdefinierter Montage-Yaw, -Pitch und -Roll
+- Visuelle Montagevorschau
 
-Eine manuelle Invertierung ist nicht mehr erforderlich.
+Die gewählte Einbaulage beeinflusst:
 
-#### Montageeinstellungen
+- Maussteuerung
+- Touch-Gesten
+- Tastatursteuerung
+- Richtungstasten
 
-Neue Konfigurationsmöglichkeiten:
+Die Kamerakalibrierung und das gewählte Kameraprofil bleiben von der Montagekonfiguration getrennt.
 
-- Montageart
-- Drehung (0°, 90°, 180°, 270°)
-- Dachneigung
-- Benutzerdefinierte Yaw-, Pitch- und Roll-Werte
+## 🔄 Kompatibilität
 
-#### Visueller Editor
+Bestehende Konfigurationen bleiben kompatibel. Karten ohne Montageeinstellungen verwenden standardmäßig Deckenmontage mit 0° Drehung.
 
-Der Lovelace-Editor besitzt jetzt einen eigenen Bereich **Kameramontage**, über den alle Einstellungen komfortabel vorgenommen werden können.
-
----
-
-### 🚀 Verbesserungen
-
-- Verbesserte Behandlung der Kamerarichtung
-- Optimierte Bedienung bei ungewöhnlichen Montagepositionen
-- Übersichtlichere Editorstruktur
-- Verbesserte Konfigurationslogik
+Die vorhandenen Optionen `control_invert_x` und `control_invert_y` funktionieren für erweiterte oder ältere Konfigurationen weiterhin.
 
 ---
+## v1.1.3
 
-### 🐞 Fehlerbehebungen
+# 🇬🇧 English
 
-- Konsistentere Bedienung
-- Verbesserte Behandlung der Kameraposition
-- Kleinere Verbesserungen der Benutzeroberfläche
-- Diverse Fehlerkorrekturen
+## ✨ New
 
----
-
-### 🔄 Kompatibilität
-
-Diese Version ist vollständig abwärtskompatibel.
-
-Bestehende Dashboards funktionieren ohne Änderungen.
-
----
-
-# v1.1.3
-
-## 🇬🇧 English
-
-### ✨ New Features
-
-#### Presets
+### Presets
 
 You can now save up to four camera views.
 
@@ -153,11 +156,15 @@ Each preset stores:
 - Yaw
 - Pitch
 - Roll
-- Field of View (FOV)
+- Field of View
 
-Presets can be created, updated and deleted.
+Presets can be:
 
-#### Improved Card Editor
+- Created
+- Updated
+- Deleted
+
+### Improved Card Editor
 
 The Lovelace editor has been expanded and reorganized.
 
@@ -168,7 +175,10 @@ New sections:
 - Controls
 - Presets
 
-#### Camera Profiles
+The Home Position can now be configured directly from the visual editor.
+
+
+### Camera Profiles
 
 Improved support for:
 
@@ -177,60 +187,71 @@ Improved support for:
 
 Changing the camera profile now correctly updates the related projection parameters.
 
-#### User Interface
+### User Interface
 
 - New button icons
 - Improved control layout
-- Better mobile support
-- Cleaner editor
+- Better mobile experience
+- Cleaner editor layout
 
-#### Documentation
 
-The documentation has been redesigned with:
+### Documentation
+
+The documentation has been redesigned.
+
+New content includes:
 
 - Hero image
 - Before/After comparison
-- Better installation guide
+- Improved installation guide
 - Additional examples
+- Extended documentation
 
----
 
-### 🐞 Fixed
+## 🐞 Fixed
 
 - Fixed keyboard navigation
 - Fixed Home button behavior
 - Fixed camera position resetting after using control buttons
-- Fixed preset editing
-- Various UI improvements
+- Fixed preset editing and deletion
+- Various UI improvements and bug fixes
 
----
 
-### 🔄 Compatibility
+## 🔄 Compatibility
 
-Fully backwards compatible.
+Existing dashboards remain fully compatible.
 
----
+No configuration changes are required.
 
-## 🇩🇪 Deutsch
 
-### ✨ Neue Funktionen
+# 🇩🇪 Deutsch
 
-#### Presets
+## ✨ Neu
+
+### Presets
 
 Es können jetzt bis zu vier Kamerapositionen gespeichert werden.
 
 Jedes Preset speichert:
 
-- Namen
+- individuellen Namen
 - MDI-Symbol
 - Yaw
 - Pitch
 - Roll
 - Sichtfeld (FOV)
 
-#### Verbesserter Karteneditor
+Presets können:
 
-Der Lovelace-Editor wurde erweitert.
+- gespeichert
+- überschrieben
+- gelöscht
+
+werden.
+
+### Verbesserter Karteneditor
+
+Der Lovelace-Editor wurde erweitert und übersichtlicher gestaltet.
 
 Neue Bereiche:
 
@@ -239,137 +260,97 @@ Neue Bereiche:
 - Bedienung
 - Presets
 
-#### Kameraprofile
+Die Home-Position kann jetzt direkt im visuellen Editor festgelegt werden.
+
+### Kameraprofile
 
 Verbesserte Unterstützung für:
 
 - UniFi AI360
 - UniFi G6 Pro 360
 
-Beim Wechsel des Kameraprofils werden jetzt automatisch die passenden Projektionsparameter übernommen.
+Beim Wechsel des Kameraprofils werden die zugehörigen Projektionsparameter jetzt korrekt übernommen.
 
-#### Benutzeroberfläche
+
+### Benutzeroberfläche
 
 - Neue Button-Symbole
-- Verbesserte Bedienung
-- Optimierte mobile Darstellung
+- Verbesserte Anordnung der Bedienelemente
+- Optimierte Darstellung auf mobilen Geräten
 - Übersichtlichere Editoransicht
 
-#### Dokumentation
 
-Neue Dokumentation mit:
+### Dokumentation
+
+Die Dokumentation wurde vollständig überarbeitet.
+
+Neu enthalten sind:
 
 - Hero-Bild
 - Vorher-/Nachher-Vergleich
-- Verbesserter Installationsanleitung
-- Zusätzlichen Beispielen
+- Verbesserte Installationsanleitung
+- Weitere Beispiele
+- Erweiterte Dokumentation
 
----
 
-### 🐞 Fehlerbehebungen
+## 🐞 Fehlerbehebungen
 
 - Tastatursteuerung korrigiert
 - Verhalten des Home-Buttons verbessert
-- Kamera springt nicht mehr unerwartet zurück
-- Presets können korrekt bearbeitet werden
-- Diverse Fehlerkorrekturen
+- Problem behoben, bei dem die Kamera nach der Bedienung über Buttons auf die Home-Position zurücksprang
+- Bearbeiten und Löschen von Presets korrigiert
+- Verschiedene Verbesserungen und Fehlerkorrekturen der Benutzeroberfläche
 
----
 
-### 🔄 Kompatibilität
+## 🔄 Kompatibilität
 
-Vollständig abwärtskompatibel.
+Bestehende Dashboards bleiben vollständig kompatibel.
 
----
+Es sind keine Änderungen an bestehenden Konfigurationen erforderlich.
 
-# v1.1.2
+# Changelog
 
-## 🇬🇧 English
+## 1.1.2 — 2026-07-23
 
-### ✨ New Features
+### Added
+- Preset editor directly inside the camera card
+- Name and Home Assistant MDI icon picker for each preset
+- Save, overwrite and delete actions
+- Up to four browser-local presets
+- Preset buttons show only the selected icon
+- Empty preset slots are hidden automatically
 
-- Added preset management
-- Save, overwrite and delete presets
-- Support for custom icons
-- Maximum of four presets
+### Changed
+- Removed numbered preset buttons and YAML named preset buttons
+- Preset icons replace names and numbers in the camera overlay
 
-## 🇩🇪 Deutsch
+## 1.1.1 — 2026-07-23
 
-### ✨ Neue Funktionen
+### Fixed
+- Keyboard control now works reliably after focusing the camera view
+- Control buttons no longer trigger the Home view through the double-click handler
+- Pointer gestures ignore all control buttons
 
-- Preset-Verwaltung hinzugefügt
-- Presets speichern, überschreiben und löschen
-- Unterstützung für individuelle MDI-Symbole
-- Maximal vier Presets
+### Changed
+- Removed the mini-compass completely
+- Left/right controls now use Material Design undo/redo icons
 
----
+## 1.1.0 — 2026-07-23
 
-# v1.1.1
+### Added
+- Visual Lovelace editor for common settings
+- Optional mini-compass showing yaw and pitch
+- Up to six named YAML view buttons
+- Pinch-to-zoom on touch devices
+- Double-click/double-tap Home
+- Keyboard shortcut `H` for Home
+- Generic circular-fisheye profile
 
-## 🇬🇧 English
+### Fixed
+- Duplicate values-overlay call during YAML export
 
-### ✨ Improvements
+### Compatibility
+- Existing `custom:unifi-ai360-view-card` configurations continue to work
 
-- Improved keyboard support
-- Improved Home button behavior
-- Updated button icons
-- Removed compass
-
-## 🇩🇪 Deutsch
-
-### ✨ Verbesserungen
-
-- Verbesserte Tastatursteuerung
-- Home-Button überarbeitet
-- Neue Button-Symbole
-- Kompass entfernt
-
----
-
-# v1.1.0
-
-## 🇬🇧 English
-
-### ✨ New Features
-
-- Visual editor
-- Home position
-- Keyboard navigation
-- Better touch controls
-
-## 🇩🇪 Deutsch
-
-### ✨ Neue Funktionen
-
-- Visueller Editor
-- Home-Position
-- Tastatursteuerung
-- Verbesserte Touch-Bedienung
-
----
-
-# v1.0.1
-
-## 🇬🇧 English
-
-### Initial public release
-
-- WebGL renderer
-- WebRTC / WHEP support
-- UniFi AI360 support
-- Hemisphere projection
-- Mouse and touch controls
-- Home Assistant integration
-- HACS support
-
-## 🇩🇪 Deutsch
-
-### Erste öffentliche Version
-
-- WebGL-Renderer
-- WebRTC-/WHEP-Unterstützung
-- Unterstützung der UniFi AI360
-- Hemisphären-Projektion
-- Maus- und Touchsteuerung
-- Home-Assistant-Integration
-- HACS-Unterstützung
+## 1.0.0 — 2026-07-23
+- Initial public release
