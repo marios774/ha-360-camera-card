@@ -12,13 +12,17 @@ jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: "24"
           cache: npm
-      - run: npm install
+          cache-dependency-path: package-lock.json
+
+      - run: npm ci
       - run: npm run build
       - run: npm test
+
       - name: Verify clean build
         run: git diff --exit-code -- dist/ha-360-camera-card.js
