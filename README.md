@@ -17,6 +17,19 @@ Assistant** integration.
 -   HACS compatible
 -   Lovelace dashboard card
 
+
+## Camera mounting
+
+Version 1.2.0 adds installation-aware controls. In the visual card editor, choose whether the camera is mounted on a ceiling, wall, sloped roof, pole or in a custom orientation. Mouse, touch, keyboard and direction-button movement are transformed automatically while camera calibration remains unchanged.
+
+```yaml
+mounting_mode: roof
+mounting_rotation: 180
+mounting_tilt: 35
+```
+
+Available values for `mounting_mode`: `ceiling`, `wall`, `roof`, `pole`, `custom`.
+
 ------------------------------------------------------------------------
 
 # Original UniFi vs. HA 360 Camera Card

@@ -63,3 +63,18 @@ controls: true
 keyboard: true
 muted: true
 ```
+
+## Camera mounting (v1.2.0)
+
+The mounting configuration changes the control coordinate system without changing the fisheye calibration.
+
+```yaml
+mounting_mode: ceiling       # ceiling, wall, roof, pole, custom
+mounting_rotation: 0         # 0, 90, 180 or 270
+mounting_tilt: 0             # roof mode
+mounting_yaw: 0              # custom mode
+mounting_pitch: 0            # custom mode
+mounting_roll: 0             # custom mode
+```
+
+The visual editor provides the recommended way to configure these values.
