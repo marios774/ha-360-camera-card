@@ -1,5 +1,24 @@
 # Changelog
 
+## v1.2.2 – Second correction / Zweite Korrektur
+
+### English
+- Added measured UniFi G6 Pro 360 wall calibration for orientation 0°.
+- Added version/build display to the visual editor and card header.
+- Added “Use current view as Home” button.
+- Combined Home Position and Saved Views into tabs.
+- Added Home Assistant Media selector for static image sources.
+- Removed Pole/Mast mounting option.
+
+### Deutsch
+- Gemessene Wandkalibrierung für UniFi G6 Pro 360 bei Ausrichtung 0° ergänzt.
+- Versions-/Buildanzeige im visuellen Editor und Kartenkopf ergänzt.
+- Schaltfläche „Aktuelle Darstellung als Home übernehmen“ ergänzt.
+- Home-Position und gespeicherte Ansichten als Tabs zusammengefasst.
+- Home-Assistant-Medienauswahl für statische Bilder ergänzt.
+- Montageoption Mast vollständig entfernt.
+
+
 ## v1.2.2
 
 > **Corrected build:** Wall mounting orientation 0° now maps pitch 0 to the lower image edge, pitch -180 to the upper edge, yaw 0 to the right edge and yaw -180 to the left edge. Vertical mouse, touch, keyboard and button operation is corrected. The Pole/Mast option has been removed.

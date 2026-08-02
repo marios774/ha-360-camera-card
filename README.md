@@ -78,3 +78,24 @@ mounting_mode: wall
 ```
 
 A folder button in the card can also open a local JPG, PNG or WebP temporarily.
+
+
+## G6 Pro 360 – Wandkalibrierung (Ausrichtung 0°)
+
+Gemessene Standardwerte:
+
+```yaml
+camera_profile: unifi_g6_pro_360
+mounting_mode: wall
+mounting_rotation: 0
+yaw: -90
+pitch: 89.75
+roll: 180
+fov: 25
+yaw_min: -169
+yaw_max: -11
+pitch_min: 12
+pitch_max: 167.5
+```
+
+Im visuellen Editor können diese Werte über „G6 Pro 360 Wandkalibrierung übernehmen“ gesetzt werden. Statische Bilder können über den Home-Assistant-Medienbrowser oder einen manuellen Pfad gewählt werden.

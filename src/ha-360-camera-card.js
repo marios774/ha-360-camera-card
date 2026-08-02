@@ -25,7 +25,19 @@ const CAMERA_PROFILES = {
     center_x: 0.5,
     center_y: 0.5,
     roll: 180,
+    fov: 25,
     mirror: true,
+    wall_calibration: {
+      rotation: 0,
+      pitch_bottom: 12,
+      pitch_top: 167.5,
+      yaw_right: -169,
+      yaw_left: -11,
+      home_pitch: 89.75,
+      home_yaw: -90,
+      roll: 180,
+      fov: 25,
+    },
   },
 };
 
@@ -53,6 +65,8 @@ class Ha360CameraCard extends HTMLElement {
       center_y: 0.5,
       yaw: 0,
       pitch: 0,
+      yaw_min: null,
+      yaw_max: null,
       pitch_min: 0,
       pitch_max: 89,
       step: 8,
@@ -83,6 +97,24 @@ class Ha360CameraCard extends HTMLElement {
       ...selectedProfile,
       ...config,
     };
+
+    // G6 Pro 360 wall calibration, orientation 0°. Explicit YAML values
+    // always win; only missing values receive the measured defaults.
+    if (
+      this.config.camera_profile === "unifi_g6_pro_360" &&
+      this.config.mounting_mode === "wall" &&
+      Number(this.config.mounting_rotation || 0) === 0
+    ) {
+      const wall = CAMERA_PROFILES.unifi_g6_pro_360.wall_calibration;
+      if (config.yaw === undefined) this.config.yaw = wall.home_yaw;
+      if (config.pitch === undefined) this.config.pitch = wall.home_pitch;
+      if (config.roll === undefined) this.config.roll = wall.roll;
+      if (config.fov === undefined) this.config.fov = wall.fov;
+      if (config.yaw_min === undefined) this.config.yaw_min = wall.yaw_right;
+      if (config.yaw_max === undefined) this.config.yaw_max = wall.yaw_left;
+      if (config.pitch_min === undefined) this.config.pitch_min = wall.pitch_bottom;
+      if (config.pitch_max === undefined) this.config.pitch_max = wall.pitch_top;
+    }
 
     if (!this._viewInitialized) {
       this._yaw = Number(this.config.yaw);
@@ -130,7 +162,7 @@ class Ha360CameraCard extends HTMLElement {
     this.innerHTML = `
       <ha-card>
         <div class="header">
-          <div class="title">${this._escape(this.config.title)}</div>
+          <div class="title">${this._escape(this.config.title)} <span class="version-badge">v${HA360_VERSION}</span></div>
           <div class="status" title="Streamstatus">●</div>
         </div>
         <div class="stage" tabindex="0" aria-label="360 Grad Kameraansicht">
@@ -253,6 +285,7 @@ class Ha360CameraCard extends HTMLElement {
         padding: 12px 16px 10px;
       }
       .title { font-size: 16px; font-weight: 600; }
+      .version-badge { font-size: 11px; font-weight: 500; opacity: .55; margin-left: 6px; }
       .status { opacity: .35; font-size: 12px; }
       .status.ok { opacity: 1; }
       .stage {
@@ -715,6 +748,21 @@ class Ha360CameraCard extends HTMLElement {
     return `${resolved}${separator}_ha360=${Date.now()}`;
   }
 
+  async _resolveImageUrl(source) {
+    if (!source) return "";
+    const mediaId = typeof source === "object" ? source.media_content_id : null;
+    if (mediaId && mediaId.startsWith("media-source://")) {
+      if (!this._hass?.callWS) throw new Error("Home Assistant Media Source kann nicht aufgelöst werden.");
+      const resolved = await this._hass.callWS({
+        type: "media_source/resolve_media",
+        media_content_id: mediaId,
+      });
+      return resolved?.url || "";
+    }
+    if (typeof source === "object") return source.url || "";
+    return String(source);
+  }
+
   async _loadStaticImage(url, cacheBust = false) {
     if (!url) throw new Error("Keine Bild-URL konfiguriert.");
     this._sourceKind = "image";
@@ -723,7 +771,8 @@ class Ha360CameraCard extends HTMLElement {
     this._video.removeAttribute("src");
     this._video.srcObject = null;
 
-    const sourceUrl = cacheBust ? this._cacheBustedImageUrl(url) : this._resolveUrl(url);
+    const resolvedImageUrl = await this._resolveImageUrl(url);
+    const sourceUrl = cacheBust ? this._cacheBustedImageUrl(resolvedImageUrl) : this._resolveUrl(resolvedImageUrl);
     await new Promise((resolve, reject) => {
       this._image.onload = () => resolve();
       this._image.onerror = () => reject(new Error("Bild konnte nicht geladen werden. Prüfe URL, Rechte und CORS."));
@@ -799,7 +848,17 @@ class Ha360CameraCard extends HTMLElement {
     }
   }
 
+  _persistCurrentView() {
+    try {
+      localStorage.setItem(
+        `${this.config.storage_key || "unifi-ai360-view-card"}:current-view`,
+        JSON.stringify(this._currentView())
+      );
+    } catch (_) {}
+  }
+
   _showValuesOverlay(longDisplay = false) {
+    this._persistCurrentView();
     if (!this._valuesOverlay) return;
 
     const yaw = Number(this._yaw.toFixed(1));
@@ -851,7 +910,13 @@ fov: ${fov}`;
   }
 
   _clampView() {
-    this._yaw = ((this._yaw + 180) % 360 + 360) % 360 - 180;
+    const yawMin = Number(this.config.yaw_min);
+    const yawMax = Number(this.config.yaw_max);
+    if (Number.isFinite(yawMin) && Number.isFinite(yawMax) && yawMin < yawMax) {
+      this._yaw = Math.min(yawMax, Math.max(yawMin, this._yaw));
+    } else {
+      this._yaw = ((this._yaw + 180) % 360 + 360) % 360 - 180;
+    }
     this._roll = ((this._roll + 180) % 360 + 360) % 360 - 180;
     this._pitch = Math.min(
       Number(this.config.pitch_max),
@@ -1204,23 +1269,34 @@ class Ha360CameraCardEditor extends HTMLElement {
     try { tempPresets = JSON.parse(localStorage.getItem(`${storageKey}:temp-presets`) || "[]"); } catch (_) {}
     this.innerHTML = `
       <style>
-        .editor{display:grid;gap:16px;padding:8px 0}.section{display:grid;gap:12px;padding:14px;border:1px solid var(--divider-color);border-radius:12px}
+        .editor{display:grid;gap:16px;padding:8px 0}.editor-version{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;background:var(--secondary-background-color)}.editor-version b{font-size:15px}.editor-version span{font-size:12px;opacity:.7}.section{display:grid;gap:12px;padding:14px;border:1px solid var(--divider-color);border-radius:12px}
         h3{margin:0;font-size:15px} label{display:grid;gap:5px;font-size:13px} input,select{box-sizing:border-box;width:100%;padding:10px;border-radius:8px;border:1px solid var(--divider-color);color:var(--primary-text-color);background:var(--card-background-color)}
-        .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.mounting-preview{display:grid;place-items:center;min-height:105px;padding:12px;border-radius:10px;background:var(--secondary-background-color);font-size:36px}.mounting-preview .camera{display:inline-block;transform:rotate(var(--mount-rotation));transition:transform .2s ease}.mounting-note{font-size:12px;color:var(--secondary-text-color)}.check{display:flex;align-items:center;gap:8px}.check input{width:auto}.preset-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px;border:1px solid var(--divider-color);border-radius:10px}.preset-actions{grid-column:1/-1;display:flex;gap:8px}.preset-actions button,.import{padding:8px 12px;border:0;border-radius:8px;cursor:pointer}.danger{background:var(--error-color);color:white} small{color:var(--secondary-text-color)}
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.mounting-preview{display:grid;place-items:center;min-height:105px;padding:12px;border-radius:10px;background:var(--secondary-background-color);font-size:36px}.mounting-preview .camera{display:inline-block;transform:rotate(var(--mount-rotation));transition:transform .2s ease}.mounting-note{font-size:12px;color:var(--secondary-text-color)}.check{display:flex;align-items:center;gap:8px}.check input{width:auto}.preset-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px;border:1px solid var(--divider-color);border-radius:10px}.preset-actions{grid-column:1/-1;display:flex;gap:8px}.preset-actions button,.import{padding:8px 12px;border:0;border-radius:8px;cursor:pointer}.danger{background:var(--error-color);color:white} small{color:var(--secondary-text-color)}.tabs{display:flex;gap:6px;border-bottom:1px solid var(--divider-color);padding-bottom:8px}.tab{padding:8px 12px;border:0;border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}.tab.active{background:var(--primary-color);color:var(--text-primary-color,#fff)}.tab-panel[hidden]{display:none}.home-actions{display:flex;gap:8px;flex-wrap:wrap}.home-actions button{padding:9px 12px;border:0;border-radius:8px;cursor:pointer}.media-selector-wrap{display:grid;gap:6px}
       </style>
       <div class="editor">
+        <div class="editor-version"><b>HA 360 Camera Card</b><span>Version / Build ${HA360_VERSION}</span></div>
         <div class="section"><h3>Allgemein</h3>${this._input("title","Titel")}
           <label>Quellentyp<select data-key="source_type">${[["auto","Automatisch"],["webrtc","WebRTC / WHEP"],["video","Video-URL"],["image","Statisches Bild (JPG/PNG)"]].map(([v,l])=>`<option value="${v}" ${(this._config.source_type||"auto")===v?"selected":""}>${l}</option>`).join("")}</select></label>
           ${this._sourceFields()}
           <label>Kameraprofil<select data-key="camera_profile">${[["generic","Generic"],["unifi_ai360","UniFi AI360"],["unifi_g6_pro_360","UniFi G6 Pro 360"],["generic_circular_fisheye","Generic circular fisheye"]].map(([v,l])=>`<option value="${v}" ${this._config.camera_profile===v?"selected":""}>${l}</option>`).join("")}</select></label>
           <div class="grid">${this._number("height","Höhe")}${this._number("step","Schrittweite")}</div></div>
         ${this._mountingSection()}
-        <div class="section"><h3>Home-Position</h3><small>Diese Werte verwendet die Home-Taste.</small><div class="grid">${this._number("yaw","Yaw")}${this._number("pitch","Pitch")}${this._number("roll","Roll")}${this._number("fov","FOV")}</div></div>
+        <div class="section"><h3>Home & Ansichten</h3>
+          <div class="tabs"><button class="tab active" data-tab="home">Home-Position</button><button class="tab" data-tab="presets">Gespeicherte Ansichten</button></div>
+          <div class="tab-panel" data-tab-panel="home">
+            <small>Diese Werte verwendet die Home-Taste.</small>
+            <div class="grid">${this._number("yaw","Yaw")}${this._number("pitch","Pitch")}${this._number("roll","Roll")}${this._number("fov","FOV")}</div>
+            <div class="home-actions"><button data-use-current-home>Aktuelle Darstellung als Home übernehmen</button>${this._g6WallCalibrationButton()}</div>
+          </div>
+          <div class="tab-panel" data-tab-panel="presets" hidden>
+            <small>Diese Ansichten werden in der Karten-YAML gespeichert.</small>
+            <div id="preset-list">${presets.map((p,i)=>this._presetRow(p,i)).join("")}</div>
+            ${presets.length<4?'<button class="import" data-add-preset>Neue feste Ansicht</button>':''}
+            ${tempPresets.length?`<h3>Temporäre Ansichten</h3><small>Mit „Übernehmen“ wird die Ansicht fest in der YAML-Konfiguration gespeichert.</small>${tempPresets.map((p,i)=>`<div class="preset-row"><b>${this._escape(p.name||`Ansicht ${i+1}`)}</b><ha-icon icon="${this._escape(p.icon||'mdi:camera-marker')}"></ha-icon><div class="preset-actions"><button data-import-temp="${i}">Übernehmen</button><button class="danger" data-delete-temp="${i}">Verwerfen</button></div></div>`).join('')}`:''}
+          </div>
+        </div>
         <div class="section"><h3>Darstellung und Bedienung</h3>
           <label class="check"><input type="checkbox" data-key="controls" ${checked("controls")}>Bedienelemente anzeigen</label><label class="check"><input type="checkbox" data-key="keyboard" ${checked("keyboard")}>Tastatursteuerung</label><label class="check"><input type="checkbox" data-key="preset_editor" ${checked("preset_editor")}>Temporäre Ansicht in der Karte speichern</label><label class="check"><input type="checkbox" data-key="mirror" ${checked("mirror",false)}>Bild spiegeln</label><label class="check"><input type="checkbox" data-key="muted" ${checked("muted")}>Stream stummschalten</label></div>
-        <div class="section"><h3>Gespeicherte Ansichten</h3><small>Diese Ansichten werden in der Karten-YAML gespeichert.</small><div id="preset-list">${presets.map((p,i)=>this._presetRow(p,i)).join("")}</div>${presets.length<4?'<button class="import" data-add-preset>Neue feste Ansicht</button>':''}
-          ${tempPresets.length?`<h3>Temporäre Ansichten</h3><small>Mit „Übernehmen“ wird die Ansicht fest in der YAML-Konfiguration gespeichert.</small>${tempPresets.map((p,i)=>`<div class="preset-row"><b>${this._escape(p.name||`Ansicht ${i+1}`)}</b><ha-icon icon="${this._escape(p.icon||'mdi:camera-marker')}"></ha-icon><div class="preset-actions"><button data-import-temp="${i}">Übernehmen</button><button class="danger" data-delete-temp="${i}">Verwerfen</button></div></div>`).join('')}`:''}
-        </div>
       </div>`;
     this.querySelectorAll("[data-key]").forEach(el=>{el.addEventListener("change",()=>this._change(el));if(el.tagName==="INPUT"&&el.type!=="checkbox")el.addEventListener("input",()=>this._change(el));});
     this.querySelectorAll('[data-preset-field]').forEach(el=>el.addEventListener('change',()=>this._updatePresetField(el)));
@@ -1228,18 +1304,77 @@ class Ha360CameraCardEditor extends HTMLElement {
     this.querySelector('[data-add-preset]')?.addEventListener('click',()=>this._addPermanentPreset());
     this.querySelectorAll('[data-import-temp]').forEach(el=>el.addEventListener('click',()=>this._importTempPreset(Number(el.dataset.importTemp),tempPresets)));
     this.querySelectorAll('[data-delete-temp]').forEach(el=>el.addEventListener('click',()=>this._deleteTempPreset(Number(el.dataset.deleteTemp),tempPresets,storageKey)));
+    this.querySelectorAll('[data-tab]').forEach(button => button.addEventListener('click', () => this._selectTab(button.dataset.tab)));
+    this.querySelector('[data-use-current-home]')?.addEventListener('click', () => this._useCurrentViewAsHome(storageKey));
+    this.querySelector('[data-apply-g6-wall]')?.addEventListener('click', () => this._applyG6WallCalibration());
+    this._setupMediaSelector();
   }
 
   _sourceFields() {
     const type = String(this._config.source_type || "auto");
     if (type === "image") {
-      return `${this._input("image_url", "Bild-URL / Pfad")}
+      return `<div class="media-selector-wrap"><label>Bild aus Medien auswählen</label><ha-selector class="image-media-selector"></ha-selector></div>
+        ${this._input("image_url", "Bild-URL / manueller Pfad")}
         <div class="grid">${this._number("image_refresh_interval", "Aktualisierung (Sek., 0 = aus)")}</div>
-        <small>Beispiel: /local/snapshots/last_motion.jpg. Die Dateiauswahl in der Karte ist nur temporär und wird nicht in YAML gespeichert.</small>`;
+        <small>Über die Medienauswahl kannst du Bilder per Maus aus Home Assistants Medienbrowser wählen. Alternativ: /local/snapshots/last_motion.jpg.</small>`;
     }
     if (type === "video") return this._input("url", "Video-URL");
     if (type === "webrtc") return this._input("whep_url", "WHEP-URL");
     return `${this._input("whep_url", "WHEP-URL")}${this._input("image_url", "Alternative Bild-URL")}`;
+  }
+
+  _setupMediaSelector() {
+    const selector = this.querySelector(".image-media-selector");
+    if (!selector) return;
+    selector.hass = this._hass;
+    selector.selector = { media: { accept: ["image/*"] } };
+    selector.value = (typeof this._config.image_url === "object") ? this._config.image_url : undefined;
+    selector.addEventListener("value-changed", (event) => {
+      const value = event.detail?.value;
+      if (!value) return;
+      const config = { ...this._config, source_type: "image", image_url: value };
+      this._emit(config);
+    });
+  }
+
+  _selectTab(name) {
+    this.querySelectorAll("[data-tab]").forEach(button => button.classList.toggle("active", button.dataset.tab === name));
+    this.querySelectorAll("[data-tab-panel]").forEach(panel => { panel.hidden = panel.dataset.tabPanel !== name; });
+  }
+
+  _useCurrentViewAsHome(storageKey) {
+    let view;
+    try { view = JSON.parse(localStorage.getItem(`${storageKey}:current-view`) || "null"); } catch (_) {}
+    if (!view) return;
+    const config = { ...this._config, yaw: Number(view.yaw), pitch: Number(view.pitch), roll: Number(view.roll), fov: Number(view.fov) };
+    this._emit(config);
+    this._render();
+  }
+
+  _g6WallCalibrationButton() {
+    if (
+      this._config.camera_profile !== "unifi_g6_pro_360" ||
+      this._config.mounting_mode !== "wall" ||
+      Number(this._config.mounting_rotation || 0) !== 0
+    ) return "";
+    return '<button data-apply-g6-wall>G6 Pro 360 Wandkalibrierung übernehmen</button>';
+  }
+
+  _applyG6WallCalibration() {
+    const wall = CAMERA_PROFILES.unifi_g6_pro_360.wall_calibration;
+    const config = {
+      ...this._config,
+      yaw: wall.home_yaw,
+      pitch: wall.home_pitch,
+      roll: wall.roll,
+      fov: wall.fov,
+      yaw_min: wall.yaw_right,
+      yaw_max: wall.yaw_left,
+      pitch_min: wall.pitch_bottom,
+      pitch_max: wall.pitch_top,
+    };
+    this._emit(config);
+    this._render();
   }
 
   _mountingSection() {
@@ -1283,7 +1418,9 @@ class Ha360CameraCardEditor extends HTMLElement {
   _deleteTempPreset(i,temp,key){temp.splice(i,1);localStorage.setItem(`${key}:temp-presets`,JSON.stringify(temp));this._render()}
 
   _input(key, label) {
-    return `<label>${label}<input data-key="${key}" value="${this._escape(this._config[key] ?? "")}"></label>`;
+    const raw = this._config[key];
+    const value = typeof raw === "object" ? "" : (raw ?? "");
+    return `<label>${label}<input data-key="${key}" value="${this._escape(value)}"></label>`;
   }
   _number(key, label) {
     return `<label>${label}<input type="number" data-key="${key}" value="${this._config[key] ?? ""}"></label>`;
@@ -1300,6 +1437,19 @@ class Ha360CameraCardEditor extends HTMLElement {
     if (element.dataset.key === "camera_profile") {
       const profile = CAMERA_PROFILES[value] || CAMERA_PROFILES.generic;
       Object.assign(config, profile);
+    }
+    if (
+      config.camera_profile === "unifi_g6_pro_360" &&
+      config.mounting_mode === "wall" &&
+      Number(config.mounting_rotation || 0) === 0 &&
+      ["camera_profile", "mounting_mode", "mounting_rotation"].includes(element.dataset.key)
+    ) {
+      const wall = CAMERA_PROFILES.unifi_g6_pro_360.wall_calibration;
+      Object.assign(config, {
+        yaw: wall.home_yaw, pitch: wall.home_pitch, roll: wall.roll, fov: wall.fov,
+        yaw_min: wall.yaw_right, yaw_max: wall.yaw_left,
+        pitch_min: wall.pitch_bottom, pitch_max: wall.pitch_top,
+      });
     }
     this._config = config;
     this.dispatchEvent(new CustomEvent("config-changed", {
