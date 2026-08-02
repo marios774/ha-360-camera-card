@@ -99,3 +99,9 @@ pitch_max: 167.5
 ```
 
 Im visuellen Editor können diese Werte über „G6 Pro 360 Wandkalibrierung übernehmen“ gesetzt werden. Statische Bilder können über den Home-Assistant-Medienbrowser oder einen manuellen Pfad gewählt werden.
+
+## Mounting help / Hilfe zur Montage
+
+See [Camera mounting and control axes](docs/mounting.md) for the illustrated Down, Up, Wall and disabled Sloped modes.
+
+Die bebilderte Hilfe zu Standard-, Aufwärts- und Wandmontage sowie der deaktivierten Schräge findest du unter [Kameramontage und Steuerachsen](docs/mounting.md).

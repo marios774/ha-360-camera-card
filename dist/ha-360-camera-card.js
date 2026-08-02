@@ -441,12 +441,16 @@ class Ha360CameraCard extends HTMLElement {
     });
   }
 
+  _roundViewValue(value) {
+    return Number(Number(value || 0).toFixed(3));
+  }
+
   _currentView() {
     return {
-      yaw: Number(this._yaw),
-      pitch: Number(this._pitch),
-      roll: Number(this._roll || 0),
-      fov: Number(this._fov),
+      yaw: this._roundViewValue(this._yaw),
+      pitch: this._roundViewValue(this._pitch),
+      roll: this._roundViewValue(this._roll || 0),
+      fov: this._roundViewValue(this._fov),
     };
   }
 
@@ -614,7 +618,8 @@ class Ha360CameraCard extends HTMLElement {
       const dy = ev.clientY - this._lastPointer.y;
       this._lastPointer = { x: ev.clientX, y: ev.clientY };
       const sensitivity = this._fov / Math.max(260, this._stage.clientWidth);
-      const horizontal = dx * (this.config.invert_x ? -1 : 1);
+      const wallPointerDirection = String(this.config.mounting_mode || "ceiling") === "wall" ? -1 : 1;
+      const horizontal = dx * (this.config.invert_x ? -1 : 1) * wallPointerDirection;
       const vertical = dy * (this.config.invert_y ? -1 : 1)
         * (this.config.projection === "hemisphere" ? 1 : -1);
       const movement = this._transformControlDelta(horizontal, vertical);
@@ -642,6 +647,17 @@ class Ha360CameraCard extends HTMLElement {
 
     this._onKeyDownBound = (ev) => {
       if (!this.config.keyboard) return;
+      const editablePath = ev.composedPath?.().some((node) => {
+        if (!node) return false;
+        if (node instanceof HTMLInputElement || node instanceof HTMLTextAreaElement || node instanceof HTMLSelectElement) return true;
+        if (node.isContentEditable) return true;
+        return [
+          "ha-textfield", "ha-selector", "ha-combo-box", "ha-code-editor",
+          "ha-icon-picker", "mwc-textfield", "mwc-select", "textarea", "input", "select"
+        ].includes(node.localName);
+      });
+      if (editablePath) return;
+      if (ev.key === "Escape") { this._stage?.blur(); return; }
       const active = this.getRootNode()?.activeElement || document.activeElement;
       const stageFocused = active === this._stage || this._stage.matches(":focus-within");
       if (!stageFocused && ev.currentTarget === window) return;
@@ -1279,16 +1295,18 @@ class Ha360CameraCardEditor extends HTMLElement {
           <label>Quellentyp<select data-key="source_type">${[["auto","Automatisch"],["webrtc","WebRTC / WHEP"],["video","Video-URL"],["image","Statisches Bild (JPG/PNG)"]].map(([v,l])=>`<option value="${v}" ${(this._config.source_type||"auto")===v?"selected":""}>${l}</option>`).join("")}</select></label>
           ${this._sourceFields()}
           <label>Kameraprofil<select data-key="camera_profile">${[["generic","Generic"],["unifi_ai360","UniFi AI360"],["unifi_g6_pro_360","UniFi G6 Pro 360"],["generic_circular_fisheye","Generic circular fisheye"]].map(([v,l])=>`<option value="${v}" ${this._config.camera_profile===v?"selected":""}>${l}</option>`).join("")}</select></label>
+          ${this._input("storage_key", "Storage Key")}
+          <small>Der Storage Key trennt temporäre Ansichten und die aktuelle Home-Übernahme mehrerer Kamerakarten voneinander.</small>
           <div class="grid">${this._number("height","Höhe")}${this._number("step","Schrittweite")}</div></div>
         ${this._mountingSection()}
         <div class="section"><h3>Home & Ansichten</h3>
-          <div class="tabs"><button class="tab active" data-tab="home">Home-Position</button><button class="tab" data-tab="presets">Gespeicherte Ansichten</button></div>
-          <div class="tab-panel" data-tab-panel="home">
+          <div class="tabs" data-tab-group="views"><button class="tab active" data-tab="home">Home-Position</button><button class="tab" data-tab="presets">Gespeicherte Ansichten</button></div>
+          <div class="tab-panel" data-tab-group="views" data-tab-panel="home">
             <small>Diese Werte verwendet die Home-Taste.</small>
             <div class="grid">${this._number("yaw","Yaw")}${this._number("pitch","Pitch")}${this._number("roll","Roll")}${this._number("fov","FOV")}</div>
             <div class="home-actions"><button data-use-current-home>Aktuelle Darstellung als Home übernehmen</button>${this._g6WallCalibrationButton()}</div>
           </div>
-          <div class="tab-panel" data-tab-panel="presets" hidden>
+          <div class="tab-panel" data-tab-group="views" data-tab-panel="presets" hidden>
             <small>Diese Ansichten werden in der Karten-YAML gespeichert.</small>
             <div id="preset-list">${presets.map((p,i)=>this._presetRow(p,i)).join("")}</div>
             ${presets.length<4?'<button class="import" data-add-preset>Neue feste Ansicht</button>':''}
@@ -1296,15 +1314,44 @@ class Ha360CameraCardEditor extends HTMLElement {
           </div>
         </div>
         <div class="section"><h3>Darstellung und Bedienung</h3>
-          <label class="check"><input type="checkbox" data-key="controls" ${checked("controls")}>Bedienelemente anzeigen</label><label class="check"><input type="checkbox" data-key="keyboard" ${checked("keyboard")}>Tastatursteuerung</label><label class="check"><input type="checkbox" data-key="preset_editor" ${checked("preset_editor")}>Temporäre Ansicht in der Karte speichern</label><label class="check"><input type="checkbox" data-key="mirror" ${checked("mirror",false)}>Bild spiegeln</label><label class="check"><input type="checkbox" data-key="muted" ${checked("muted")}>Stream stummschalten</label></div>
+          <div class="tabs" data-tab-group="controls"><button class="tab active" data-tab="controls">Bedienung</button><button class="tab" data-tab="geometry">Geometrie & Experten</button></div>
+          <div class="tab-panel" data-tab-group="controls" data-tab-panel="controls">
+            <label class="check"><input type="checkbox" data-key="controls" ${checked("controls")}>Bedienelemente anzeigen</label>
+            <label class="check"><input type="checkbox" data-key="keyboard" ${checked("keyboard")}>Tastatursteuerung</label>
+            <label class="check"><input type="checkbox" data-key="preset_editor" ${checked("preset_editor")}>Temporäre Ansicht in der Karte speichern</label>
+            <label class="check"><input type="checkbox" data-key="muted" ${checked("muted")}>Stream stummschalten</label>
+          </div>
+          <div class="tab-panel" data-tab-group="controls" data-tab-panel="geometry" hidden>
+            <small>Alle Projektions-, Grenz- und Invertierungswerte. Änderungen wirken direkt auf die Karten-YAML.</small>
+            <label>Projektion<select data-key="projection">${[["hemisphere","Hemisphere"],["fisheye","Fisheye"],["flat","Flat"]].map(([v,l])=>`<option value="${v}" ${(this._config.projection||"hemisphere")===v?"selected":""}>${l}</option>`).join("")}</select></label>
+            <div class="grid">
+              ${this._number("fisheye_fov","Fisheye FOV")}${this._number("circle_radius","Kreisradius")}
+              ${this._number("center_x","Mittelpunkt X")}${this._number("center_y","Mittelpunkt Y")}
+              ${this._number("rotate","Quellbild drehen")}${this._number("step","Schrittweite")}
+              ${this._number("yaw_min","Yaw min")}${this._number("yaw_max","Yaw max")}
+              ${this._number("pitch_min","Pitch min")}${this._number("pitch_max","Pitch max")}
+            </div>
+            <label class="check"><input type="checkbox" data-key="mirror" ${checked("mirror",false)}>Bild spiegeln</label>
+            <label class="check"><input type="checkbox" data-key="invert_x" ${checked("invert_x",false)}>Maus/Touch X zusätzlich invertieren</label>
+            <label class="check"><input type="checkbox" data-key="invert_y" ${checked("invert_y",false)}>Maus/Touch Y zusätzlich invertieren</label>
+            <label class="check"><input type="checkbox" data-key="control_invert_x" ${checked("control_invert_x",true)}>Buttons/Tastatur X invertieren</label>
+            <label class="check"><input type="checkbox" data-key="control_invert_y" ${checked("control_invert_y",true)}>Buttons/Tastatur Y invertieren</label>
+          </div>
+        </div>
       </div>`;
-    this.querySelectorAll("[data-key]").forEach(el=>{el.addEventListener("change",()=>this._change(el));if(el.tagName==="INPUT"&&el.type!=="checkbox")el.addEventListener("input",()=>this._change(el));});
+    this.querySelectorAll("[data-key]").forEach(el => {
+      el.addEventListener("change", () => this._change(el));
+      el.addEventListener("keydown", (event) => event.stopPropagation());
+    });
     this.querySelectorAll('[data-preset-field]').forEach(el=>el.addEventListener('change',()=>this._updatePresetField(el)));
     this.querySelectorAll('[data-delete-preset]').forEach(el=>el.addEventListener('click',()=>this._deletePermanentPreset(Number(el.dataset.deletePreset))));
     this.querySelector('[data-add-preset]')?.addEventListener('click',()=>this._addPermanentPreset());
     this.querySelectorAll('[data-import-temp]').forEach(el=>el.addEventListener('click',()=>this._importTempPreset(Number(el.dataset.importTemp),tempPresets)));
     this.querySelectorAll('[data-delete-temp]').forEach(el=>el.addEventListener('click',()=>this._deleteTempPreset(Number(el.dataset.deleteTemp),tempPresets,storageKey)));
-    this.querySelectorAll('[data-tab]').forEach(button => button.addEventListener('click', () => this._selectTab(button.dataset.tab)));
+    this.querySelectorAll('[data-tab]').forEach(button => button.addEventListener('click', () => {
+      const group = button.closest('[data-tab-group]')?.dataset.tabGroup || 'views';
+      this._selectTab(group, button.dataset.tab);
+    }));
     this.querySelector('[data-use-current-home]')?.addEventListener('click', () => this._useCurrentViewAsHome(storageKey));
     this.querySelector('[data-apply-g6-wall]')?.addEventListener('click', () => this._applyG6WallCalibration());
     this._setupMediaSelector();
@@ -1337,9 +1384,13 @@ class Ha360CameraCardEditor extends HTMLElement {
     });
   }
 
-  _selectTab(name) {
-    this.querySelectorAll("[data-tab]").forEach(button => button.classList.toggle("active", button.dataset.tab === name));
-    this.querySelectorAll("[data-tab-panel]").forEach(panel => { panel.hidden = panel.dataset.tabPanel !== name; });
+  _selectTab(group, name) {
+    this.querySelectorAll(`[data-tab-group="${group}"] [data-tab]`).forEach(button =>
+      button.classList.toggle("active", button.dataset.tab === name)
+    );
+    this.querySelectorAll(`[data-tab-panel][data-tab-group="${group}"]`).forEach(panel => {
+      panel.hidden = panel.dataset.tabPanel !== name;
+    });
   }
 
   _useCurrentViewAsHome(storageKey) {
@@ -1384,18 +1435,18 @@ class Ha360CameraCardEditor extends HTMLElement {
       ["ceiling", "Nach unten / normale Montage"],
       ["up", "Nach oben"],
       ["wall", "Wand"],
-      ["roof", "Dach / Schräge"],
+      ["roof", "Dach / Schräge (deaktiviert)"],
       ["custom", "Benutzerdefiniert"],
     ];
     const modeFields = mode === "roof"
-      ? this._number("mounting_tilt", "Neigungswinkel (°)")
+      ? '<small>Die schräge Montage ist derzeit deaktiviert. Verwende bis zur erneuten Kalibrierung „Benutzerdefiniert“.</small>'
       : mode === "custom"
         ? `<div class="grid">${this._number("mounting_yaw", "Montage-Yaw")}${this._number("mounting_pitch", "Montage-Pitch")}${this._number("mounting_roll", "Montage-Roll")}</div>`
         : "";
     const symbols = { ceiling: "⌄📷", down: "⌄📷", up: "📷⌃", wall: "📷→", roof: "╱📷", custom: "📷" };
     return `<div class="section"><h3>Kameramontage</h3>
       <small>Passt Maus-, Touch-, Tastatur- und Buttonsteuerung an die Einbaulage an. Die Bildkalibrierung bleibt unverändert.</small>
-      <label>Installation<select data-key="mounting_mode">${modes.map(([v,l])=>`<option value="${v}" ${mode===v?"selected":""}>${l}</option>`).join("")}</select></label>
+      <label>Installation<select data-key="mounting_mode">${modes.map(([v,l])=>`<option value="${v}" ${mode===v?"selected":""} ${v==="roof"?"disabled":""}>${l}</option>`).join("")}</select></label>
       <label>Drehung<select data-key="mounting_rotation">${[0,90,180,270].map(v=>`<option value="${v}" ${rotation===v?"selected":""}>${v}°</option>`).join("")}</select></label>
       ${modeFields}
       <div class="mounting-preview" data-mounting-preview style="--mount-rotation:${rotation}deg"><span class="camera">${symbols[mode] || "📷"}</span></div>
@@ -1409,12 +1460,14 @@ class Ha360CameraCardEditor extends HTMLElement {
     preview.style.setProperty("--mount-rotation", `${Number(this._config.mounting_rotation || 0)}deg`);
   }
 
-  _presetRow(preset,index){return `<div class="preset-row"><label>Name<input data-preset-field="name" data-preset-index="${index}" value="${this._escape(preset.name||'')}"></label><label>Symbol<ha-icon-picker data-preset-field="icon" data-preset-index="${index}" value="${this._escape(preset.icon||'mdi:camera-marker')}"></ha-icon-picker></label><label>Yaw<input type="number" data-preset-field="yaw" data-preset-index="${index}" value="${preset.yaw??0}"></label><label>Pitch<input type="number" data-preset-field="pitch" data-preset-index="${index}" value="${preset.pitch??0}"></label><label>Roll<input type="number" data-preset-field="roll" data-preset-index="${index}" value="${preset.roll??0}"></label><label>FOV<input type="number" data-preset-field="fov" data-preset-index="${index}" value="${preset.fov??95}"></label><div class="preset-actions"><button class="danger" data-delete-preset="${index}">Löschen</button></div></div>`}
+  _presetRow(preset,index){return `<div class="preset-row"><label>Name<input data-preset-field="name" data-preset-index="${index}" value="${this._escape(preset.name||'')}"></label><label>Symbol<ha-icon-picker data-preset-field="icon" data-preset-index="${index}" value="${this._escape(preset.icon||'mdi:camera-marker')}"></ha-icon-picker></label><label>Yaw<input type="number" step="0.001" data-preset-field="yaw" data-preset-index="${index}" value="${this._round3(preset.yaw??0)}"></label><label>Pitch<input type="number" step="0.001" data-preset-field="pitch" data-preset-index="${index}" value="${this._round3(preset.pitch??0)}"></label><label>Roll<input type="number" step="0.001" data-preset-field="roll" data-preset-index="${index}" value="${this._round3(preset.roll??0)}"></label><label>FOV<input type="number" step="0.001" data-preset-field="fov" data-preset-index="${index}" value="${this._round3(preset.fov??95)}"></label><div class="preset-actions"><button class="danger" data-delete-preset="${index}">Löschen</button></div></div>`}
+  _round3(value){return Number(Number(value||0).toFixed(3));}
+  _roundedPreset(preset){return {...preset,yaw:this._round3(preset.yaw),pitch:this._round3(preset.pitch),roll:this._round3(preset.roll),fov:this._round3(preset.fov)};}
   _emit(config){this._config=config;this.dispatchEvent(new CustomEvent('config-changed',{detail:{config},bubbles:true,composed:true}));}
-  _updatePresetField(el){const config={...this._config,presets:[...(this._config.presets||[])]};const i=Number(el.dataset.presetIndex);config.presets[i]={...config.presets[i]};let v=el.value;if(el.type==='number')v=Number(v);config.presets[i][el.dataset.presetField]=v;this._emit(config)}
+  _updatePresetField(el){const config={...this._config,presets:[...(this._config.presets||[])]};const i=Number(el.dataset.presetIndex);config.presets[i]={...config.presets[i]};let v=el.value;if(el.type==='number')v=this._round3(v);config.presets[i][el.dataset.presetField]=v;this._emit(config)}
   _deletePermanentPreset(i){const config={...this._config,presets:[...(this._config.presets||[])]};config.presets.splice(i,1);this._emit(config);this._render()}
-  _addPermanentPreset(){const config={...this._config,presets:[...(this._config.presets||[])]};if(config.presets.length>=4)return;config.presets.push({name:`Ansicht ${config.presets.length+1}`,icon:'mdi:camera-marker',yaw:Number(config.yaw||0),pitch:Number(config.pitch||0),roll:Number(config.roll||0),fov:Number(config.fov||95)});this._emit(config);this._render()}
-  _importTempPreset(i,temp){const config={...this._config,presets:[...(this._config.presets||[])]};if(config.presets.length>=4)return;const p={...temp[i]};delete p.temporary;config.presets.push(p);temp.splice(i,1);localStorage.setItem(`${config.storage_key||'unifi-ai360-view-card'}:temp-presets`,JSON.stringify(temp));this._emit(config);this._render()}
+  _addPermanentPreset(){const config={...this._config,presets:[...(this._config.presets||[])]};if(config.presets.length>=4)return;config.presets.push(this._roundedPreset({name:`Ansicht ${config.presets.length+1}`,icon:'mdi:camera-marker',yaw:Number(config.yaw||0),pitch:Number(config.pitch||0),roll:Number(config.roll||0),fov:Number(config.fov||95)}));this._emit(config);this._render()}
+  _importTempPreset(i,temp){const config={...this._config,presets:[...(this._config.presets||[])]};if(config.presets.length>=4)return;const p=this._roundedPreset({...temp[i]});delete p.temporary;config.presets.push(p);temp.splice(i,1);localStorage.setItem(`${config.storage_key||'unifi-ai360-view-card'}:temp-presets`,JSON.stringify(temp));this._emit(config);this._render()}
   _deleteTempPreset(i,temp,key){temp.splice(i,1);localStorage.setItem(`${key}:temp-presets`,JSON.stringify(temp));this._render()}
 
   _input(key, label) {

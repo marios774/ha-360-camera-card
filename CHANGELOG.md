@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.2.2 — Corrected build 3
+
+### English
+
+- Corrected horizontal mouse and touch direction for wall mounting.
+- Prevented the visual editor from losing input focus after every character.
+- Sloped mounting is now visibly disabled until its axis calibration is complete.
+- Added a Geometry & Expert tab containing projection, limits and inversion values.
+- Added a Storage Key field to the visual editor.
+- Rounded stored and imported preset values to three decimal places.
+- Added illustrated mounting documentation using the supplied Down, Up, Wall and Sloped diagrams.
+
+### Deutsch
+
+- Horizontale Maus- und Touchrichtung bei Wandmontage korrigiert.
+- Verhindert, dass der visuelle Editor nach jedem Zeichen den Eingabefokus verliert.
+- Schräge Montage wird bis zur vollständigen Achsenkalibrierung sichtbar als deaktiviert geführt.
+- Neuer Tab „Geometrie & Experten“ für Projektion, Grenzwerte und Invertierung.
+- Storage-Key-Feld im visuellen Editor ergänzt.
+- Gespeicherte und importierte Ansichten werden auf drei Nachkommastellen gerundet.
+- Bebilderte Montagehilfe mit den bereitgestellten Grafiken für Unten, Oben, Wand und Schräge ergänzt.
+
+---
+
 ## v1.2.2 – Second correction / Zweite Korrektur
 
 ### English
