@@ -2,6 +2,11 @@
 
 ## v1.2.2
 
+> **Corrected build:** Wall mounting orientation 0° now maps pitch 0 to the lower image edge, pitch -180 to the upper edge, yaw 0 to the right edge and yaw -180 to the left edge. Vertical mouse, touch, keyboard and button operation is corrected. The Pole/Mast option has been removed.
+
+> **Korrigierter Build:** Bei Wandmontage mit Ausrichtung 0° entspricht Pitch 0 der Bildunterkante, Pitch -180 der Bildoberkante, Yaw 0 der rechten und Yaw -180 der linken Bildkante. Die vertikale Bedienung per Maus, Touch, Tastatur und Schaltflächen wurde korrigiert. Die Option Pole/Mast wurde entfernt.
+
+
 ### English
 
 #### Added
@@ -14,7 +19,7 @@
 - Mounting modes are now applied as a real world-to-sensor 3D transformation in the WebGL projection.
 - Left/right always pans around the vertical axis shown in the mounting diagrams.
 - Up/down always tilts around the current horizontal axis.
-- Down, Up, Wall, Roof/Sloped, Pole and Custom installations now affect the rendered dewarping instead of only remapping input values.
+- Down, Up, Wall, Roof/Sloped and Custom installations now affect the rendered dewarping instead of only remapping input values.
 - Standard downward mounting remains mathematically identical to previous versions.
 
 #### Fixed
@@ -34,7 +39,7 @@
 - Montagelagen werden jetzt als echte 3D-Transformation von Welt- zu Sensorkoordinaten in der WebGL-Projektion angewendet.
 - Links/rechts dreht immer um die in den Grafiken dargestellte vertikale Achse.
 - Hoch/runter schwenkt immer um die aktuelle horizontale Achse.
-- Nach unten, nach oben, Wand, Dach/Schräge, Mast und Benutzerdefiniert beeinflussen nun tatsächlich die Entzerrung und nicht nur die Eingabewerte.
+- Nach unten, nach oben, Wand, Dach/Schräge und Benutzerdefiniert beeinflussen nun tatsächlich die Entzerrung und nicht nur die Eingabewerte.
 - Die normale Montage nach unten bleibt mathematisch unverändert.
 
 #### Behoben
@@ -58,7 +63,6 @@ The mounting modes now affect the actual movement axes instead of only changing 
 - **Upward mounting:** The control axes are rotated by 180° relative to the normal mounting.
 - **Wall mounting:** Horizontal movement pans around an axis positioned 90° to the camera's optical axis.
 - **Sloped mounting:** The control axes are continuously tilted by the configured mounting angle.
-- **Pole mounting:** Uses the same 90° axis orientation as wall mounting.
 - **Custom mounting:** Mounting pitch, yaw, roll and rotation are combined to transform the control axes.
 
 The same transformation is used for mouse, touch, keyboard and on-screen direction buttons.
@@ -86,7 +90,6 @@ Die Montagearten wirken sich jetzt auf die tatsächlichen Bewegungsachsen aus un
 - **Nach oben:** Die Steuerachsen werden gegenüber der normalen Montage um 180° gedreht.
 - **Wandmontage:** Die horizontale Bewegung schwenkt um eine Achse, die 90° zur optischen Kameraachse liegt.
 - **Schräge Montage:** Die Steuerachsen werden stufenlos um den eingestellten Montagewinkel gekippt.
-- **Mastmontage:** Verwendet wie die Wandmontage eine um 90° geneigte Steuerachse.
 - **Benutzerdefiniert:** Montage-Pitch, -Yaw, -Roll und Drehung werden gemeinsam zur Transformation der Steuerachsen verwendet.
 
 Dieselbe Transformation gilt für Maus, Touch, Tastatur und die Richtungstasten auf der Karte.
@@ -117,7 +120,6 @@ Available installation modes:
 - Ceiling / overhead
 - Wall
 - Roof / sloped surface
-- Pole
 - Custom
 
 Depending on the selected mode, the editor provides:
@@ -157,7 +159,6 @@ Verfügbare Montagearten:
 - Decke / über Kopf
 - Wand
 - Dach / schräge Fläche
-- Mast
 - Benutzerdefiniert
 
 Abhängig von der gewählten Montageart stehen folgende Einstellungen zur Verfügung:

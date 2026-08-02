@@ -676,8 +676,11 @@ class Ha360CameraCard extends HTMLElement {
       ceiling: { pitch: 0, yaw: 0, roll: baseRotation },
       down:    { pitch: 0, yaw: 0, roll: baseRotation },
       up:      { pitch: 180, yaw: 0, roll: baseRotation },
-      wall:    { pitch: 90, yaw: 0, roll: baseRotation },
-      pole:    { pitch: 90, yaw: 0, roll: baseRotation },
+      // Wall orientation 0°: pitch 0 samples the lower image edge and
+      // pitch -180 samples the upper image edge. Yaw 0 is the right edge;
+      // yaw -180 is the left edge. The negative 90° mounting rotation also
+      // corrects vertical mouse/button direction without changing controls.
+      wall:    { pitch: -90, yaw: 0, roll: baseRotation },
       roof:    { pitch: Number(this.config.mounting_tilt || 0), yaw: 0, roll: baseRotation },
       custom:  {
         pitch: Number(this.config.mounting_pitch || 0),
@@ -930,7 +933,7 @@ fov: ${fov}`;
         }
 
         // Convert the world/view ray into the physical sensor coordinate
-        // system. This makes ceiling/up/wall/roof/pole/custom mounting modes
+        // system. This makes ceiling/up/wall/roof/custom mounting modes
         // affect both dewarping and all control axes while preserving the
         // proven standard-down behavior as the identity transformation.
         ray = rotZ(-u_mount_roll) * rotY(-u_mount_yaw) * rotX(-u_mount_pitch) * ray;
@@ -1247,7 +1250,6 @@ class Ha360CameraCardEditor extends HTMLElement {
       ["up", "Nach oben"],
       ["wall", "Wand"],
       ["roof", "Dach / Schräge"],
-      ["pole", "Mast"],
       ["custom", "Benutzerdefiniert"],
     ];
     const modeFields = mode === "roof"
@@ -1255,7 +1257,7 @@ class Ha360CameraCardEditor extends HTMLElement {
       : mode === "custom"
         ? `<div class="grid">${this._number("mounting_yaw", "Montage-Yaw")}${this._number("mounting_pitch", "Montage-Pitch")}${this._number("mounting_roll", "Montage-Roll")}</div>`
         : "";
-    const symbols = { ceiling: "⌄📷", down: "⌄📷", up: "📷⌃", wall: "📷→", roof: "╱📷", pole: "│📷", custom: "📷" };
+    const symbols = { ceiling: "⌄📷", down: "⌄📷", up: "📷⌃", wall: "📷→", roof: "╱📷", custom: "📷" };
     return `<div class="section"><h3>Kameramontage</h3>
       <small>Passt Maus-, Touch-, Tastatur- und Buttonsteuerung an die Einbaulage an. Die Bildkalibrierung bleibt unverändert.</small>
       <label>Installation<select data-key="mounting_mode">${modes.map(([v,l])=>`<option value="${v}" ${mode===v?"selected":""}>${l}</option>`).join("")}</select></label>

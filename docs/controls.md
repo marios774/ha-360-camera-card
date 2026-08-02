@@ -18,7 +18,7 @@ The card transforms all direction input through the selected physical mounting o
 
 - `ceiling` / `down`: normal downward-facing behavior
 - `up`: upward-facing camera, axes rotated by 180°
-- `wall` / `pole`: control plane tilted by 90°
+- `wall`: control plane tilted by -90° so vertical operation matches the displayed image
 - `roof`: control plane tilted by `mounting_tilt`
 - `custom`: uses mounting pitch plus mounting yaw, roll and rotation
 
