@@ -105,3 +105,9 @@ Im visuellen Editor können diese Werte über „G6 Pro 360 Wandkalibrierung üb
 See [Camera mounting and control axes](docs/mounting.md) for the illustrated Down, Up, Wall and disabled Sloped modes.
 
 Die bebilderte Hilfe zu Standard-, Aufwärts- und Wandmontage sowie der deaktivierten Schräge findest du unter [Kameramontage und Steuerachsen](docs/mounting.md).
+
+
+## v1.2.2 correction: wall rotation and generic profiles
+
+- In wall mounting mode, left/right controls rotate around the optical camera axis again instead of panning.
+- Selecting `generic` or `generic_circular_fisheye` in the visual editor shows the complete calibration/YAML values directly below the profile selector.

@@ -618,13 +618,10 @@ class Ha360CameraCard extends HTMLElement {
       const dy = ev.clientY - this._lastPointer.y;
       this._lastPointer = { x: ev.clientX, y: ev.clientY };
       const sensitivity = this._fov / Math.max(260, this._stage.clientWidth);
-      const wallPointerDirection = String(this.config.mounting_mode || "ceiling") === "wall" ? -1 : 1;
-      const horizontal = dx * (this.config.invert_x ? -1 : 1) * wallPointerDirection;
+      const horizontal = dx * (this.config.invert_x ? -1 : 1);
       const vertical = dy * (this.config.invert_y ? -1 : 1)
         * (this.config.projection === "hemisphere" ? 1 : -1);
-      const movement = this._transformControlDelta(horizontal, vertical);
-      this._yaw += movement.yaw * sensitivity;
-      this._pitch += movement.pitch * sensitivity;
+      this._applyControlMovement(horizontal, vertical, sensitivity);
       this._clampView();
       this._showValuesOverlay(false);
     });
@@ -688,9 +685,7 @@ class Ha360CameraCard extends HTMLElement {
     if (action === "down") vertical = step * cy * projectionY;
 
     if (horizontal || vertical) {
-      const movement = this._transformControlDelta(horizontal, vertical);
-      this._yaw += movement.yaw;
-      this._pitch += movement.pitch;
+      this._applyControlMovement(horizontal, vertical, 1);
     }
 
     if (action === "browse-image") this._imageFileInput?.click();
@@ -746,6 +741,24 @@ class Ha360CameraCard extends HTMLElement {
     // around the current horizontal (white) axis. The physical mounting is
     // applied later in the shader as a world-to-sensor transformation.
     return { yaw: horizontal, pitch: vertical };
+  }
+
+  _applyControlMovement(horizontal, vertical, sensitivity = 1) {
+    const mode = String(this.config.mounting_mode || "ceiling");
+
+    if (mode === "wall") {
+      // For a wall-mounted camera, horizontal operation must rotate the
+      // dewarped view around the optical camera axis. This restores the
+      // established rotate-left / rotate-right behavior instead of panning.
+      this._roll += horizontal * sensitivity;
+      this._pitch += vertical * sensitivity;
+      this._roll = ((this._roll + 180) % 360 + 360) % 360 - 180;
+      return;
+    }
+
+    const movement = this._transformControlDelta(horizontal, vertical);
+    this._yaw += movement.yaw * sensitivity;
+    this._pitch += movement.pitch * sensitivity;
   }
 
   _resolvedSourceType() {
@@ -1295,6 +1308,7 @@ class Ha360CameraCardEditor extends HTMLElement {
           <label>Quellentyp<select data-key="source_type">${[["auto","Automatisch"],["webrtc","WebRTC / WHEP"],["video","Video-URL"],["image","Statisches Bild (JPG/PNG)"]].map(([v,l])=>`<option value="${v}" ${(this._config.source_type||"auto")===v?"selected":""}>${l}</option>`).join("")}</select></label>
           ${this._sourceFields()}
           <label>Kameraprofil<select data-key="camera_profile">${[["generic","Generic"],["unifi_ai360","UniFi AI360"],["unifi_g6_pro_360","UniFi G6 Pro 360"],["generic_circular_fisheye","Generic circular fisheye"]].map(([v,l])=>`<option value="${v}" ${this._config.camera_profile===v?"selected":""}>${l}</option>`).join("")}</select></label>
+          ${this._genericProfileFields()}
           ${this._input("storage_key", "Storage Key")}
           <small>Der Storage Key trennt temporäre Ansichten und die aktuelle Home-Übernahme mehrerer Kamerakarten voneinander.</small>
           <div class="grid">${this._number("height","Höhe")}${this._number("step","Schrittweite")}</div></div>
@@ -1355,6 +1369,41 @@ class Ha360CameraCardEditor extends HTMLElement {
     this.querySelector('[data-use-current-home]')?.addEventListener('click', () => this._useCurrentViewAsHome(storageKey));
     this.querySelector('[data-apply-g6-wall]')?.addEventListener('click', () => this._applyG6WallCalibration());
     this._setupMediaSelector();
+  }
+
+  _genericProfileFields() {
+    const profile = String(this._config.camera_profile || "generic");
+    if (!["generic", "generic_circular_fisheye"].includes(profile)) return "";
+
+    return `<div class="section generic-profile-values">
+      <h3>Generisches Profil – YAML-Werte</h3>
+      <small>Diese Eingabefelder schreiben die Werte direkt in die Karten-YAML. Damit kann ein unbekannter Fisheye-Stream vollständig kalibriert werden.</small>
+      <label>Projektion<select data-key="projection">${[["hemisphere","Hemisphere"],["fisheye","Fisheye"],["flat","Flat"]].map(([v,l])=>`<option value="${v}" ${(this._config.projection||"hemisphere")===v?"selected":""}>${l}</option>`).join("")}</select></label>
+      <div class="grid">
+        ${this._number("fisheye_fov", "Fisheye FOV")}
+        ${this._number("circle_radius", "Kreisradius")}
+        ${this._number("center_x", "Mittelpunkt X")}
+        ${this._number("center_y", "Mittelpunkt Y")}
+        ${this._number("rotate", "Quellbild drehen")}
+        ${this._number("yaw", "Home Yaw")}
+        ${this._number("pitch", "Home Pitch")}
+        ${this._number("roll", "Home Roll")}
+        ${this._number("fov", "Home FOV")}
+        ${this._number("yaw_min", "Yaw min")}
+        ${this._number("yaw_max", "Yaw max")}
+        ${this._number("pitch_min", "Pitch min")}
+        ${this._number("pitch_max", "Pitch max")}
+      </div>
+      <label class="check"><input type="checkbox" data-key="mirror" ${this._checkedValue("mirror", false)}>Bild spiegeln</label>
+      <label class="check"><input type="checkbox" data-key="invert_x" ${this._checkedValue("invert_x", false)}>Maus/Touch X invertieren</label>
+      <label class="check"><input type="checkbox" data-key="invert_y" ${this._checkedValue("invert_y", false)}>Maus/Touch Y invertieren</label>
+      <label class="check"><input type="checkbox" data-key="control_invert_x" ${this._checkedValue("control_invert_x", true)}>Buttons/Tastatur X invertieren</label>
+      <label class="check"><input type="checkbox" data-key="control_invert_y" ${this._checkedValue("control_invert_y", true)}>Buttons/Tastatur Y invertieren</label>
+    </div>`;
+  }
+
+  _checkedValue(key, fallback = true) {
+    return (this._config[key] === undefined ? fallback : this._config[key]) ? "checked" : "";
   }
 
   _sourceFields() {
@@ -1508,7 +1557,7 @@ class Ha360CameraCardEditor extends HTMLElement {
     this.dispatchEvent(new CustomEvent("config-changed", {
       detail: { config }, bubbles: true, composed: true
     }));
-    if (["mounting_mode", "source_type"].includes(element.dataset.key)) this._render();
+    if (["mounting_mode", "source_type", "camera_profile"].includes(element.dataset.key)) this._render();
     else if (element.dataset.key.startsWith("mounting_")) this._updateMountingPreview();
   }
   _escape(value) {

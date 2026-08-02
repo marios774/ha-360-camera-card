@@ -1,5 +1,16 @@
 # Changelog
 
+### v1.2.2 corrective build
+
+#### English
+- Restored optical-axis rotation for left/right controls in wall mounting mode.
+- Generic camera profiles now expose their calibration and YAML values as visible input fields in the GUI.
+
+#### Deutsch
+- Bei Wandmontage drehen Links/Rechts die Ansicht wieder um die optische Kameraachse, statt seitlich zu schwenken.
+- Bei generischen Kameraprofilen werden die Kalibrierungs- und YAML-Werte nun als sichtbare Eingabefelder im GUI eingeblendet.
+
+
 ## v1.2.2 — Corrected build 3
 
 ### English
