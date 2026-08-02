@@ -43,6 +43,14 @@ const CAMERA_PROFILES = {
 
 class Ha360CameraCard extends HTMLElement {
   setConfig(config) {
+    if (config && config.yaw_max === undefined && config.aw_max !== undefined) {
+      console.warn("HA 360 Camera Card: 'aw_max' is deprecated/invalid; use 'yaw_max'.");
+      config = { ...config, yaw_max: config.aw_max };
+    }
+    if (config && config.step === undefined && config.tep !== undefined) {
+      console.warn("HA 360 Camera Card: 'tep' is deprecated/invalid; use 'step'.");
+      config = { ...config, step: config.tep };
+    }
     if (!config || (!config.url && !config.whep_url && !config.image_url)) {
       throw new Error("Bitte 'whep_url', 'url' oder 'image_url' konfigurieren.");
     }
@@ -116,12 +124,27 @@ class Ha360CameraCard extends HTMLElement {
       if (config.pitch_max === undefined) this.config.pitch_max = wall.pitch_top;
     }
 
-    if (!this._viewInitialized) {
+    const configuredViewSignature = JSON.stringify({
+      yaw: Number(this.config.yaw),
+      pitch: Number(this.config.pitch),
+      roll: Number(this.config.roll || 0),
+      fov: Number(this.config.fov),
+      yaw_min: this.config.yaw_min,
+      yaw_max: this.config.yaw_max,
+      pitch_min: this.config.pitch_min,
+      pitch_max: this.config.pitch_max,
+      camera_profile: this.config.camera_profile,
+      mounting_mode: this.config.mounting_mode,
+      mounting_rotation: this.config.mounting_rotation,
+    });
+    if (!this._viewInitialized || this._configuredViewSignature !== configuredViewSignature) {
       this._yaw = Number(this.config.yaw);
       this._pitch = Number(this.config.pitch);
       this._roll = Number(this.config.roll || 0);
       this._fov = Number(this.config.fov);
+      this._configuredViewSignature = configuredViewSignature;
       this._viewInitialized = true;
+      this._clampView();
     }
     this._dragging = false;
     this._lastPointer = null;
@@ -744,18 +767,10 @@ class Ha360CameraCard extends HTMLElement {
   }
 
   _applyControlMovement(horizontal, vertical, sensitivity = 1) {
-    const mode = String(this.config.mounting_mode || "ceiling");
-
-    if (mode === "wall") {
-      // For a wall-mounted camera, horizontal operation must rotate the
-      // dewarped view around the optical camera axis. This restores the
-      // established rotate-left / rotate-right behavior instead of panning.
-      this._roll += horizontal * sensitivity;
-      this._pitch += vertical * sensitivity;
-      this._roll = ((this._roll + 180) % 360 + 360) % 360 - 180;
-      return;
-    }
-
+    // Yaw and pitch remain the canonical view coordinates for every mounting
+    // mode. The mounting matrix is applied in the shader. Keeping wall motion
+    // on yaw makes yaw_min/yaw_max effective and restores the established
+    // wall control behavior.
     const movement = this._transformControlDelta(horizontal, vertical);
     this._yaw += movement.yaw * sensitivity;
     this._pitch += movement.pitch * sensitivity;
@@ -938,19 +953,43 @@ fov: ${fov}`;
     this.dispatchEvent(event);
   }
 
+  _numericLimit(value) {
+    if (value === null || value === undefined || value === "") return null;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+
   _clampView() {
-    const yawMin = Number(this.config.yaw_min);
-    const yawMax = Number(this.config.yaw_max);
-    if (Number.isFinite(yawMin) && Number.isFinite(yawMax) && yawMin < yawMax) {
-      this._yaw = Math.min(yawMax, Math.max(yawMin, this._yaw));
+    const yawMin = this._numericLimit(this.config.yaw_min);
+    const yawMax = this._numericLimit(this.config.yaw_max);
+    if (yawMin !== null && yawMax !== null) {
+      if (yawMin <= yawMax) {
+        this._yaw = Math.min(yawMax, Math.max(yawMin, this._yaw));
+      } else {
+        // Wrapped range, e.g. 170° … -170°.
+        const distanceToMin = Math.abs(this._yaw - yawMin);
+        const distanceToMax = Math.abs(this._yaw - yawMax);
+        if (this._yaw < yawMin && this._yaw > yawMax) {
+          this._yaw = distanceToMin < distanceToMax ? yawMin : yawMax;
+        }
+      }
     } else {
       this._yaw = ((this._yaw + 180) % 360 + 360) % 360 - 180;
     }
+
     this._roll = ((this._roll + 180) % 360 + 360) % 360 - 180;
-    this._pitch = Math.min(
-      Number(this.config.pitch_max),
-      Math.max(Number(this.config.pitch_min), this._pitch)
-    );
+
+    const pitchMin = this._numericLimit(this.config.pitch_min);
+    const pitchMax = this._numericLimit(this.config.pitch_max);
+    if (pitchMin !== null && pitchMax !== null) {
+      const low = Math.min(pitchMin, pitchMax);
+      const high = Math.max(pitchMin, pitchMax);
+      this._pitch = Math.min(high, Math.max(low, this._pitch));
+    } else if (pitchMin !== null) {
+      this._pitch = Math.max(pitchMin, this._pitch);
+    } else if (pitchMax !== null) {
+      this._pitch = Math.min(pitchMax, this._pitch);
+    }
   }
 
   _initWebGL() {
@@ -1300,7 +1339,7 @@ class Ha360CameraCardEditor extends HTMLElement {
       <style>
         .editor{display:grid;gap:16px;padding:8px 0}.editor-version{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;border-radius:10px;background:var(--secondary-background-color)}.editor-version b{font-size:15px}.editor-version span{font-size:12px;opacity:.7}.section{display:grid;gap:12px;padding:14px;border:1px solid var(--divider-color);border-radius:12px}
         h3{margin:0;font-size:15px} label{display:grid;gap:5px;font-size:13px} input,select{box-sizing:border-box;width:100%;padding:10px;border-radius:8px;border:1px solid var(--divider-color);color:var(--primary-text-color);background:var(--card-background-color)}
-        .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.mounting-preview{display:grid;place-items:center;min-height:105px;padding:12px;border-radius:10px;background:var(--secondary-background-color);font-size:36px}.mounting-preview .camera{display:inline-block;transform:rotate(var(--mount-rotation));transition:transform .2s ease}.mounting-note{font-size:12px;color:var(--secondary-text-color)}.check{display:flex;align-items:center;gap:8px}.check input{width:auto}.preset-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px;border:1px solid var(--divider-color);border-radius:10px}.preset-actions{grid-column:1/-1;display:flex;gap:8px}.preset-actions button,.import{padding:8px 12px;border:0;border-radius:8px;cursor:pointer}.danger{background:var(--error-color);color:white} small{color:var(--secondary-text-color)}.tabs{display:flex;gap:6px;border-bottom:1px solid var(--divider-color);padding-bottom:8px}.tab{padding:8px 12px;border:0;border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}.tab.active{background:var(--primary-color);color:var(--text-primary-color,#fff)}.tab-panel[hidden]{display:none}.home-actions{display:flex;gap:8px;flex-wrap:wrap}.home-actions button{padding:9px 12px;border:0;border-radius:8px;cursor:pointer}.media-selector-wrap{display:grid;gap:6px}
+        .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.mounting-preview{display:grid;place-items:center;min-height:105px;padding:12px;border-radius:10px;background:var(--secondary-background-color);font-size:36px}.mounting-preview .camera{display:inline-block;transform:rotate(var(--mount-rotation));transition:transform .2s ease}.mounting-note{font-size:12px;color:var(--secondary-text-color)}.check{display:flex;align-items:center;gap:8px}.check input{width:auto}.preset-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px;border:1px solid var(--divider-color);border-radius:10px}.preset-actions{grid-column:1/-1;display:flex;gap:8px}.preset-actions button,.import{padding:8px 12px;border:0;border-radius:8px;cursor:pointer}.danger{background:var(--error-color);color:white} small{color:var(--secondary-text-color)}.tabs{display:flex;gap:6px;border-bottom:1px solid var(--divider-color);padding-bottom:8px}.tab{padding:8px 12px;border:0;border-radius:8px;background:var(--secondary-background-color);color:var(--primary-text-color);cursor:pointer}.tab.active{background:var(--primary-color);color:var(--text-primary-color,#fff)}.tab-panel[hidden]{display:none}.home-actions{display:flex;gap:8px;flex-wrap:wrap}.home-actions button{padding:9px 12px;border:0;border-radius:8px;cursor:pointer}.media-selector-wrap{display:grid;gap:6px}.generic-profile-values{border:2px solid var(--primary-color);border-radius:10px;padding:10px}.generic-profile-values summary{cursor:pointer;font-weight:700;color:var(--primary-color)}.generic-profile-body{display:grid;gap:10px;padding-top:12px}
       </style>
       <div class="editor">
         <div class="editor-version"><b>HA 360 Camera Card</b><span>Version / Build ${HA360_VERSION}</span></div>
@@ -1375,8 +1414,9 @@ class Ha360CameraCardEditor extends HTMLElement {
     const profile = String(this._config.camera_profile || "generic");
     if (!["generic", "generic_circular_fisheye"].includes(profile)) return "";
 
-    return `<div class="section generic-profile-values">
-      <h3>Generisches Profil – YAML-Werte</h3>
+    return `<details class="generic-profile-values" open>
+      <summary>Generisches Profil – YAML-Werte und Kalibrierung</summary>
+      <div class="generic-profile-body">
       <small>Diese Eingabefelder schreiben die Werte direkt in die Karten-YAML. Damit kann ein unbekannter Fisheye-Stream vollständig kalibriert werden.</small>
       <label>Projektion<select data-key="projection">${[["hemisphere","Hemisphere"],["fisheye","Fisheye"],["flat","Flat"]].map(([v,l])=>`<option value="${v}" ${(this._config.projection||"hemisphere")===v?"selected":""}>${l}</option>`).join("")}</select></label>
       <div class="grid">
@@ -1399,7 +1439,8 @@ class Ha360CameraCardEditor extends HTMLElement {
       <label class="check"><input type="checkbox" data-key="invert_y" ${this._checkedValue("invert_y", false)}>Maus/Touch Y invertieren</label>
       <label class="check"><input type="checkbox" data-key="control_invert_x" ${this._checkedValue("control_invert_x", true)}>Buttons/Tastatur X invertieren</label>
       <label class="check"><input type="checkbox" data-key="control_invert_y" ${this._checkedValue("control_invert_y", true)}>Buttons/Tastatur Y invertieren</label>
-    </div>`;
+      </div>
+    </details>`;
   }
 
   _checkedValue(key, fallback = true) {
@@ -1538,7 +1579,15 @@ class Ha360CameraCardEditor extends HTMLElement {
     else config[element.dataset.key] = value;
     if (element.dataset.key === "camera_profile") {
       const profile = CAMERA_PROFILES[value] || CAMERA_PROFILES.generic;
-      Object.assign(config, profile);
+      const profileKeys = [
+        "projection", "fisheye_fov", "circle_radius", "center_x", "center_y",
+        "yaw", "pitch", "roll", "fov", "yaw_min", "yaw_max",
+        "pitch_min", "pitch_max", "rotate", "mirror", "invert_x", "invert_y",
+        "control_invert_x", "control_invert_y"
+      ];
+      for (const key of profileKeys) {
+        if (profile[key] !== undefined) config[key] = profile[key];
+      }
     }
     if (
       config.camera_profile === "unifi_g6_pro_360" &&
@@ -1554,11 +1603,11 @@ class Ha360CameraCardEditor extends HTMLElement {
       });
     }
     this._config = config;
+    if (["mounting_mode", "source_type", "camera_profile"].includes(element.dataset.key)) this._render();
+    else if (element.dataset.key.startsWith("mounting_")) this._updateMountingPreview();
     this.dispatchEvent(new CustomEvent("config-changed", {
       detail: { config }, bubbles: true, composed: true
     }));
-    if (["mounting_mode", "source_type", "camera_profile"].includes(element.dataset.key)) this._render();
-    else if (element.dataset.key.startsWith("mounting_")) this._updateMountingPreview();
   }
   _escape(value) {
     return String(value).replaceAll("&", "&amp;").replaceAll('"', "&quot;")

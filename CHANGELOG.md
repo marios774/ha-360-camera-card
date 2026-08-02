@@ -1,5 +1,22 @@
 # Changelog
 
+### v1.2.2 corrected build 5
+
+**English**
+- Restored wall horizontal control to yaw so configured yaw limits work.
+- Fixed applying changed YAML home values without resetting interactive movement.
+- Added robust yaw/pitch min/max handling.
+- Generic profile calibration fields are now shown in a clearly highlighted editor panel.
+- Added compatibility warnings for the accidental keys `aw_max` and `tep`.
+
+**Deutsch**
+- Horizontale Wandsteuerung wieder auf Yaw umgestellt, damit Yaw-Grenzen greifen.
+- Übernahme geänderter YAML-Homewerte korrigiert, ohne interaktive Bewegungen zurückzusetzen.
+- Robuste Verarbeitung der Yaw-/Pitch-Min-/Max-Werte.
+- Kalibrierungsfelder generischer Profile werden in einem deutlich markierten Editorbereich angezeigt.
+- Kompatibilitätshinweise für die versehentlichen Schlüssel `aw_max` und `tep` ergänzt.
+
+
 ### v1.2.2 corrective build
 
 #### English
