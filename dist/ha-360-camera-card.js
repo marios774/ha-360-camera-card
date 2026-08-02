@@ -1,4 +1,4 @@
-const HA360_VERSION = "1.2.1";
+const HA360_VERSION = "1.2.2";
 
 const CAMERA_PROFILES = {
   generic: {},
@@ -31,8 +31,8 @@ const CAMERA_PROFILES = {
 
 class Ha360CameraCard extends HTMLElement {
   setConfig(config) {
-    if (!config || (!config.url && !config.whep_url)) {
-      throw new Error("Bitte 'url' oder 'whep_url' konfigurieren.");
+    if (!config || (!config.url && !config.whep_url && !config.image_url)) {
+      throw new Error("Bitte 'whep_url', 'url' oder 'image_url' konfigurieren.");
     }
 
     const selectedProfile = CAMERA_PROFILES[config.camera_profile] || CAMERA_PROFILES.generic;
@@ -40,6 +40,10 @@ class Ha360CameraCard extends HTMLElement {
     this.config = {
       title: "360° Camera",
       camera_profile: "generic",
+      source_type: "auto",
+      image_url: "",
+      image_browse: true,
+      image_refresh_interval: 0,
       height: 520,
       fov: 95,
       projection: "hemisphere",
@@ -108,6 +112,8 @@ class Ha360CameraCard extends HTMLElement {
   disconnectedCallback() {
     if (this._raf) cancelAnimationFrame(this._raf);
     if (this._valuesOverlayTimer) clearTimeout(this._valuesOverlayTimer);
+    if (this._imageRefreshTimer) clearInterval(this._imageRefreshTimer);
+    if (this._objectImageUrl) URL.revokeObjectURL(this._objectImageUrl);
     if (this._resizeObserver) this._resizeObserver.disconnect();
     if (this._pc) this._pc.close();
     if (this._video) {
@@ -130,6 +136,8 @@ class Ha360CameraCard extends HTMLElement {
         <div class="stage" tabindex="0" aria-label="360 Grad Kameraansicht">
           <canvas></canvas>
           <video playsinline ${this.config.muted ? "muted" : ""}></video>
+          <img class="static-source" alt="Statisches 360°-Bild" crossorigin="anonymous">
+          ${this.config.image_browse ? `<input class="image-file-input" type="file" accept="image/jpeg,image/png,image/webp" hidden>` : ""}
           <div class="message">Stream wird geladen …</div>
           <div class="values-overlay" aria-live="polite"></div>
           ${this.config.preset_editor ? this._presetEditorHtml() : ""}
@@ -142,6 +150,10 @@ class Ha360CameraCard extends HTMLElement {
     this._stage = this.querySelector(".stage");
     this._canvas = this.querySelector("canvas");
     this._video = this.querySelector("video");
+    this._image = this.querySelector("img.static-source");
+    this._imageFileInput = this.querySelector(".image-file-input");
+    this._textureSource = this._video;
+    this._sourceKind = "video";
     this._message = this.querySelector(".message");
     this._valuesOverlay = this.querySelector(".values-overlay");
     this._status = this.querySelector(".status");
@@ -161,14 +173,17 @@ class Ha360CameraCard extends HTMLElement {
     this._resize();
 
     try {
-      if (this.config.whep_url) {
+      const sourceType = this._resolvedSourceType();
+      if (sourceType === "image") {
+        await this._loadStaticImage(this.config.image_url || this.config.url);
+      } else if (sourceType === "webrtc") {
         await this._startWhep(this._resolveUrl(this.config.whep_url));
       } else {
         this._video.src = this._resolveUrl(this.config.url);
         if (this.config.autoplay) await this._video.play();
       }
     } catch (err) {
-      this._setError(`Stream konnte nicht gestartet werden: ${err.message}`);
+      this._setError(`Quelle konnte nicht gestartet werden: ${err.message}`);
     }
 
     this._video.addEventListener("playing", () => {
@@ -182,6 +197,7 @@ class Ha360CameraCard extends HTMLElement {
       const code = this._video.error?.code;
       this._setError(`Videofehler${code ? ` (Code ${code})` : ""}.`);
     });
+    this._imageFileInput?.addEventListener("change", (ev) => this._loadLocalImageFile(ev));
 
     this._animate();
   }
@@ -197,6 +213,7 @@ class Ha360CameraCard extends HTMLElement {
       </div>
       <div class="presets">
         <div class="preset-buttons" aria-label="Gespeicherte Ansichten"></div>
+        ${this.config.image_browse ? `<button type="button" data-action="browse-image" aria-label="Statisches Bild öffnen" title="JPG/PNG öffnen"><ha-icon icon="mdi:image-search-outline"></ha-icon></button>` : ""}
         ${this.config.preset_editor ? `<button type="button" data-action="preset-editor" aria-label="Ansichten verwalten" title="Ansichten verwalten"><ha-icon icon="mdi:square-edit-outline"></ha-icon></button>` : ""}
         <button type="button" data-action="show-values" aria-label="Aktuelle Ansichtswerte" title="Aktuelle Werte anzeigen"><ha-icon icon="mdi:information-outline"></ha-icon></button>
       </div>
@@ -244,7 +261,8 @@ class Ha360CameraCard extends HTMLElement {
         user-select: none;
       }
       canvas { width: 100%; height: 100%; display: block; }
-      video { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+      video, img.static-source { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+      .image-file-input { display: none; }
       .message {
         position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
         padding: 24px; color: white; background: rgba(0,0,0,.45); text-align: center;
@@ -626,6 +644,7 @@ class Ha360CameraCard extends HTMLElement {
       this._pitch += movement.pitch;
     }
 
+    if (action === "browse-image") this._imageFileInput?.click();
     if (action === "preset-editor") this._openPresetEditor();
     if (action === "show-values") this._copyCurrentValuesAsYaml();
     if (action === "zoom-in") this._fov -= 8;
@@ -647,49 +666,94 @@ class Ha360CameraCard extends HTMLElement {
     }
   }
 
-  _mountingTransform() {
+  _mountingAngles() {
     const mode = String(this.config.mounting_mode || "ceiling");
+    const baseRotation = Number(this.config.mounting_rotation || 0);
 
-    // Angle between the normal (downward-facing) control axis and the
-    // camera installation plane. 0° keeps the proven normal controls,
-    // 90° changes horizontal input into a pan around an axis perpendicular
-    // to the optical axis, and 180° represents an upward-facing camera.
-    const installationTilt = {
-      ceiling: 0,
-      down: 0,
-      up: 180,
-      wall: 90,
-      pole: 90,
-      roof: Number(this.config.mounting_tilt || 0),
-      custom: Number(this.config.mounting_pitch || 0),
-    }[mode] ?? 0;
-
-    // Rotation describes how the camera housing is turned in its mounting
-    // plane. In custom mode yaw and roll are additional control-axis offsets.
-    const customRotation = mode === "custom"
-      ? Number(this.config.mounting_yaw || 0) + Number(this.config.mounting_roll || 0)
-      : 0;
-    const rotation = Number(this.config.mounting_rotation || 0) + customRotation;
-
-    return { installationTilt, rotation };
+    // World-to-sensor mounting orientation. The established downward-facing
+    // mode is the identity transformation and therefore remains unchanged.
+    const modes = {
+      ceiling: { pitch: 0, yaw: 0, roll: baseRotation },
+      down:    { pitch: 0, yaw: 0, roll: baseRotation },
+      up:      { pitch: 180, yaw: 0, roll: baseRotation },
+      wall:    { pitch: 90, yaw: 0, roll: baseRotation },
+      pole:    { pitch: 90, yaw: 0, roll: baseRotation },
+      roof:    { pitch: Number(this.config.mounting_tilt || 0), yaw: 0, roll: baseRotation },
+      custom:  {
+        pitch: Number(this.config.mounting_pitch || 0),
+        yaw: Number(this.config.mounting_yaw || 0),
+        roll: baseRotation + Number(this.config.mounting_roll || 0),
+      },
+    };
+    return modes[mode] || modes.ceiling;
   }
 
   _transformControlDelta(horizontal, vertical) {
-    const { installationTilt, rotation } = this._mountingTransform();
+    // Controls always operate in world/view coordinates:
+    // left/right rotates around the vertical (purple) axis; up/down tilts
+    // around the current horizontal (white) axis. The physical mounting is
+    // applied later in the shader as a world-to-sensor transformation.
+    return { yaw: horizontal, pitch: vertical };
+  }
 
-    // First tilt both logical control axes with the physical camera axis.
-    // This is the important difference from v1.2.0: roof tilt no longer only
-    // changes sensitivity; it continuously rotates the actual yaw/pitch axes.
-    const tiltAngle = this._deg(installationTilt);
-    let yaw = horizontal * Math.cos(tiltAngle) - vertical * Math.sin(tiltAngle);
-    let pitch = horizontal * Math.sin(tiltAngle) + vertical * Math.cos(tiltAngle);
+  _resolvedSourceType() {
+    const configured = String(this.config.source_type || "auto").toLowerCase();
+    if (["image", "video", "webrtc"].includes(configured)) return configured;
+    if (this.config.image_url) return "image";
+    if (this.config.whep_url) return "webrtc";
+    const candidate = String(this.config.url || "").split("?")[0].toLowerCase();
+    return /\.(jpe?g|png|webp|gif)$/.test(candidate) ? "image" : "video";
+  }
 
-    // Then account for a 0/90/180/270° rotation of the camera in its plane.
-    const rotationAngle = this._deg(rotation);
-    const rotatedYaw = yaw * Math.cos(rotationAngle) - pitch * Math.sin(rotationAngle);
-    const rotatedPitch = yaw * Math.sin(rotationAngle) + pitch * Math.cos(rotationAngle);
+  _cacheBustedImageUrl(url) {
+    const resolved = this._resolveUrl(url);
+    if (!resolved) return "";
+    const separator = resolved.includes("?") ? "&" : "?";
+    return `${resolved}${separator}_ha360=${Date.now()}`;
+  }
 
-    return { yaw: rotatedYaw, pitch: rotatedPitch };
+  async _loadStaticImage(url, cacheBust = false) {
+    if (!url) throw new Error("Keine Bild-URL konfiguriert.");
+    this._sourceKind = "image";
+    this._textureSource = this._image;
+    this._video.pause();
+    this._video.removeAttribute("src");
+    this._video.srcObject = null;
+
+    const sourceUrl = cacheBust ? this._cacheBustedImageUrl(url) : this._resolveUrl(url);
+    await new Promise((resolve, reject) => {
+      this._image.onload = () => resolve();
+      this._image.onerror = () => reject(new Error("Bild konnte nicht geladen werden. Prüfe URL, Rechte und CORS."));
+      this._image.src = sourceUrl;
+    });
+    this._message.style.display = "none";
+    this._status.classList.add("ok");
+
+    if (this._imageRefreshTimer) clearInterval(this._imageRefreshTimer);
+    const seconds = Number(this.config.image_refresh_interval || 0);
+    if (seconds > 0 && !String(url).startsWith("blob:")) {
+      this._imageRefreshTimer = setInterval(() => {
+        this._image.src = this._cacheBustedImageUrl(url);
+      }, Math.max(2, seconds) * 1000);
+    }
+  }
+
+  async _loadLocalImageFile(event) {
+    const file = event.target?.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      this._showToast("Bitte eine JPG-, PNG- oder WebP-Datei auswählen.");
+      return;
+    }
+    if (this._objectImageUrl) URL.revokeObjectURL(this._objectImageUrl);
+    this._objectImageUrl = URL.createObjectURL(file);
+    try {
+      await this._loadStaticImage(this._objectImageUrl);
+      this._showToast(`Bild geöffnet: ${file.name}`);
+    } catch (err) {
+      this._setError(err.message);
+    }
+    event.target.value = "";
   }
 
   async _copyCurrentValuesAsYaml() {
@@ -821,6 +885,9 @@ fov: ${fov}`;
       uniform float u_rotate;
       uniform float u_mirror;
       uniform float u_projection;
+      uniform float u_mount_pitch;
+      uniform float u_mount_yaw;
+      uniform float u_mount_roll;
 
       const float PI = 3.141592653589793;
 
@@ -831,6 +898,10 @@ fov: ${fov}`;
       mat3 rotX(float a) {
         float c = cos(a), s = sin(a);
         return mat3(1.0,0.0,0.0, 0.0,c,s, 0.0,-s,c);
+      }
+      mat3 rotZ(float a) {
+        float c = cos(a), s = sin(a);
+        return mat3(c,s,0.0, -s,c,0.0, 0.0,0.0,1.0);
       }
 
       void main() {
@@ -857,6 +928,12 @@ fov: ${fov}`;
           ray = normalize(vec3(p.x, -p.y, focal));
           ray = rotY(u_yaw) * rotX(u_pitch) * ray;
         }
+
+        // Convert the world/view ray into the physical sensor coordinate
+        // system. This makes ceiling/up/wall/roof/pole/custom mounting modes
+        // affect both dewarping and all control axes while preserving the
+        // proven standard-down behavior as the identity transformation.
+        ray = rotZ(-u_mount_roll) * rotY(-u_mount_yaw) * rotX(-u_mount_pitch) * ray;
 
         vec2 texUv;
 
@@ -907,7 +984,7 @@ fov: ${fov}`;
     this._uniforms = {};
     [
       "u_video", "u_resolution", "u_yaw", "u_roll", "u_pitch", "u_fov",
-      "u_fisheye_fov", "u_radius", "u_center", "u_rotate", "u_mirror", "u_projection"
+      "u_fisheye_fov", "u_radius", "u_center", "u_rotate", "u_mirror", "u_projection", "u_mount_pitch", "u_mount_yaw", "u_mount_roll"
     ].forEach((name) => {
       this._uniforms[name] = gl.getUniformLocation(program, name);
     });
@@ -956,14 +1033,17 @@ fov: ${fov}`;
 
   _animate() {
     const gl = this._gl;
-    if (this._video.readyState >= 2) {
+    const sourceReady = this._sourceKind === "image"
+      ? Boolean(this._image?.complete && this._image.naturalWidth > 0)
+      : this._video.readyState >= 2;
+    if (sourceReady) {
       gl.useProgram(this._program);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, this._texture);
       try {
         gl.texImage2D(
           gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA,
-          gl.UNSIGNED_BYTE, this._video
+          gl.UNSIGNED_BYTE, this._textureSource
         );
         gl.uniform1i(this._uniforms.u_video, 0);
         gl.uniform2f(this._uniforms.u_resolution, this._canvas.width, this._canvas.height);
@@ -985,6 +1065,10 @@ fov: ${fov}`;
           this.config.projection === "flat" ? 1 :
           this.config.projection === "hemisphere" ? 2 : 0
         );
+        const mounting = this._mountingAngles();
+        gl.uniform1f(this._uniforms.u_mount_pitch, this._deg(mounting.pitch));
+        gl.uniform1f(this._uniforms.u_mount_yaw, this._deg(mounting.yaw));
+        gl.uniform1f(this._uniforms.u_mount_roll, this._deg(mounting.roll));
         gl.drawArrays(gl.TRIANGLES, 0, 6);
       } catch (err) {
         this._setError(
@@ -1086,6 +1170,7 @@ fov: ${fov}`;
     return {
       title: "360° Camera",
       type: "custom:ha-360-camera-card",
+      source_type: "webrtc",
       whep_url: "https://HOME-ASSISTANT-ODER-GO2RTC/api/webrtc?src=ai360",
       height: 520,
       fisheye_fov: 360,
@@ -1121,7 +1206,9 @@ class Ha360CameraCardEditor extends HTMLElement {
         .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}.mounting-preview{display:grid;place-items:center;min-height:105px;padding:12px;border-radius:10px;background:var(--secondary-background-color);font-size:36px}.mounting-preview .camera{display:inline-block;transform:rotate(var(--mount-rotation));transition:transform .2s ease}.mounting-note{font-size:12px;color:var(--secondary-text-color)}.check{display:flex;align-items:center;gap:8px}.check input{width:auto}.preset-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:10px;border:1px solid var(--divider-color);border-radius:10px}.preset-actions{grid-column:1/-1;display:flex;gap:8px}.preset-actions button,.import{padding:8px 12px;border:0;border-radius:8px;cursor:pointer}.danger{background:var(--error-color);color:white} small{color:var(--secondary-text-color)}
       </style>
       <div class="editor">
-        <div class="section"><h3>Allgemein</h3>${this._input("title","Titel")}${this._input("whep_url","WHEP-URL")}
+        <div class="section"><h3>Allgemein</h3>${this._input("title","Titel")}
+          <label>Quellentyp<select data-key="source_type">${[["auto","Automatisch"],["webrtc","WebRTC / WHEP"],["video","Video-URL"],["image","Statisches Bild (JPG/PNG)"]].map(([v,l])=>`<option value="${v}" ${(this._config.source_type||"auto")===v?"selected":""}>${l}</option>`).join("")}</select></label>
+          ${this._sourceFields()}
           <label>Kameraprofil<select data-key="camera_profile">${[["generic","Generic"],["unifi_ai360","UniFi AI360"],["unifi_g6_pro_360","UniFi G6 Pro 360"],["generic_circular_fisheye","Generic circular fisheye"]].map(([v,l])=>`<option value="${v}" ${this._config.camera_profile===v?"selected":""}>${l}</option>`).join("")}</select></label>
           <div class="grid">${this._number("height","Höhe")}${this._number("step","Schrittweite")}</div></div>
         ${this._mountingSection()}
@@ -1138,6 +1225,18 @@ class Ha360CameraCardEditor extends HTMLElement {
     this.querySelector('[data-add-preset]')?.addEventListener('click',()=>this._addPermanentPreset());
     this.querySelectorAll('[data-import-temp]').forEach(el=>el.addEventListener('click',()=>this._importTempPreset(Number(el.dataset.importTemp),tempPresets)));
     this.querySelectorAll('[data-delete-temp]').forEach(el=>el.addEventListener('click',()=>this._deleteTempPreset(Number(el.dataset.deleteTemp),tempPresets,storageKey)));
+  }
+
+  _sourceFields() {
+    const type = String(this._config.source_type || "auto");
+    if (type === "image") {
+      return `${this._input("image_url", "Bild-URL / Pfad")}
+        <div class="grid">${this._number("image_refresh_interval", "Aktualisierung (Sek., 0 = aus)")}</div>
+        <small>Beispiel: /local/snapshots/last_motion.jpg. Die Dateiauswahl in der Karte ist nur temporär und wird nicht in YAML gespeichert.</small>`;
+    }
+    if (type === "video") return this._input("url", "Video-URL");
+    if (type === "webrtc") return this._input("whep_url", "WHEP-URL");
+    return `${this._input("whep_url", "WHEP-URL")}${this._input("image_url", "Alternative Bild-URL")}`;
   }
 
   _mountingSection() {
@@ -1204,7 +1303,7 @@ class Ha360CameraCardEditor extends HTMLElement {
     this.dispatchEvent(new CustomEvent("config-changed", {
       detail: { config }, bubbles: true, composed: true
     }));
-    if (element.dataset.key === "mounting_mode") this._render();
+    if (["mounting_mode", "source_type"].includes(element.dataset.key)) this._render();
     else if (element.dataset.key.startsWith("mounting_")) this._updateMountingPreview();
   }
   _escape(value) {

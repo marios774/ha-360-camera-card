@@ -78,3 +78,19 @@ mounting_roll: 0             # custom mode
 ```
 
 The visual editor provides the recommended way to configure these values.
+
+
+## Static images (v1.2.2)
+
+```yaml
+type: custom:ha-360-camera-card
+title: Last motion
+source_type: image
+image_url: /local/snapshots/last_motion.jpg
+image_refresh_interval: 10
+camera_profile: unifi_ai360
+projection: hemisphere
+mounting_mode: wall
+```
+
+Files stored below `/config/www/` are available in Home Assistant below `/local/`. The folder button in the card opens a local JPG/PNG/WebP temporarily; browsers cannot write this local file path back into Lovelace YAML.

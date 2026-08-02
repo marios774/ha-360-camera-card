@@ -60,3 +60,21 @@ distortion and a more natural perspective.
 -   Interactive navigation
 -   Preset support
 -   WebRTC streaming
+
+
+## Static event images (v1.2.2)
+
+The same WebGL dewarping and controls can be used with Home Assistant JPG snapshots:
+
+```yaml
+type: custom:ha-360-camera-card
+title: Last motion
+source_type: image
+image_url: /local/snapshots/last_motion.jpg
+image_refresh_interval: 10
+camera_profile: unifi_ai360
+projection: hemisphere
+mounting_mode: wall
+```
+
+A folder button in the card can also open a local JPG, PNG or WebP temporarily.

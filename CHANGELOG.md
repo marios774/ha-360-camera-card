@@ -1,5 +1,49 @@
 # Changelog
 
+## v1.2.2
+
+### English
+
+#### Added
+- Static JPG, PNG and WebP sources using `image_url` or an image URL in `url`.
+- Temporary local image browsing directly from the card.
+- Optional periodic refresh for Home Assistant snapshot files such as `/local/snapshots/last_motion.jpg`.
+- Source type selection in the visual editor: Auto, WebRTC/WHEP, video or static image.
+
+#### Changed
+- Mounting modes are now applied as a real world-to-sensor 3D transformation in the WebGL projection.
+- Left/right always pans around the vertical axis shown in the mounting diagrams.
+- Up/down always tilts around the current horizontal axis.
+- Down, Up, Wall, Roof/Sloped, Pole and Custom installations now affect the rendered dewarping instead of only remapping input values.
+- Standard downward mounting remains mathematically identical to previous versions.
+
+#### Fixed
+- Wall, upward-facing and sloped mounting modes previously had little or no visible effect.
+- Unified mouse, touch, keyboard and on-screen button behavior across all mounting modes.
+- Improved source error messages and cleanup when switching to a static image.
+
+### Deutsch
+
+#### Hinzugefügt
+- Statische JPG-, PNG- und WebP-Quellen über `image_url` oder eine Bildadresse in `url`.
+- Temporäre lokale Bildauswahl direkt aus der Karte.
+- Optionale regelmäßige Aktualisierung von Home-Assistant-Snapshot-Dateien wie `/local/snapshots/last_motion.jpg`.
+- Auswahl des Quellentyps im visuellen Editor: Automatisch, WebRTC/WHEP, Video oder statisches Bild.
+
+#### Geändert
+- Montagelagen werden jetzt als echte 3D-Transformation von Welt- zu Sensorkoordinaten in der WebGL-Projektion angewendet.
+- Links/rechts dreht immer um die in den Grafiken dargestellte vertikale Achse.
+- Hoch/runter schwenkt immer um die aktuelle horizontale Achse.
+- Nach unten, nach oben, Wand, Dach/Schräge, Mast und Benutzerdefiniert beeinflussen nun tatsächlich die Entzerrung und nicht nur die Eingabewerte.
+- Die normale Montage nach unten bleibt mathematisch unverändert.
+
+#### Behoben
+- Wand-, Überkopf- und Schrägmontage hatten zuvor kaum oder keine sichtbare Auswirkung.
+- Einheitliches Verhalten für Maus, Touch, Tastatur und Bildschirmtasten in allen Montagelagen.
+- Verbesserte Fehlermeldungen und Bereinigung beim Wechsel zu einem statischen Bild.
+
+---
+
 ## v1.2.1
 
 # 🇬🇧 English
