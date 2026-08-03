@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.2.2.1
+
+### English
+
+- Added a dedicated **Camera profile** editor tab containing all projection, geometry, home, limit, mirror and input inversion values.
+- Profile values for Generic and UniFi profiles are now visible and directly editable.
+- Selecting a camera profile again, or using the restore button, reloads its stored defaults.
+- Corrected horizontal mouse and touch direction for wall mounting without changing button or keyboard controls.
+- Updated the UniFi G6 Pro 360 wall profile to use `pitch: 70` and the supplied calibration limits.
+
+### Deutsch
+
+- Neuer Editor-Tab **Kameraprofil** mit allen Projektions-, Geometrie-, Home-, Grenz-, Spiegelungs- und Invertierungswerten.
+- Profilwerte von Generic- und UniFi-Profilen werden angezeigt und können direkt geändert werden.
+- Eine erneute Profilauswahl oder die Wiederherstellen-Schaltfläche lädt die gespeicherten Standardwerte neu.
+- Horizontale Maus- und Touchrichtung bei Wandmontage korrigiert, ohne Button- oder Tastatursteuerung zu verändern.
+- Das Wandprofil der UniFi G6 Pro 360 verwendet jetzt `pitch: 70` und die gelieferten Kalibrierungsgrenzen.
+
 ## v1.2.2 – Second correction / Zweite Korrektur
 
 ### English

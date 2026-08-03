@@ -1,4 +1,28 @@
-const HA360_VERSION = "1.2.2";
+const HA360_VERSION = "1.2.2.1";
+
+const CALIBRATION_DEFAULTS = {
+  projection: "hemisphere",
+  fisheye_fov: 360,
+  circle_radius: 0.5,
+  center_x: 0.5,
+  center_y: 0.5,
+  rotate: 0,
+  yaw: 0,
+  pitch: 0,
+  roll: 0,
+  fov: 95,
+  yaw_min: null,
+  yaw_max: null,
+  pitch_min: 0,
+  pitch_max: 89,
+  mirror: false,
+  invert_x: false,
+  invert_y: false,
+  control_invert_x: true,
+  control_invert_y: true,
+};
+
+const CALIBRATION_KEYS = Object.keys(CALIBRATION_DEFAULTS);
 
 const CAMERA_PROFILES = {
   generic: {},
@@ -30,7 +54,7 @@ const CAMERA_PROFILES = {
     wall_calibration: {
       rotation: 0,
       yaw: -84,
-      pitch: 270,
+      pitch: 70,
       roll: -180,
       fov: 40,
       yaw_min: -169,
@@ -614,7 +638,10 @@ class Ha360CameraCard extends HTMLElement {
       const dy = ev.clientY - this._lastPointer.y;
       this._lastPointer = { x: ev.clientX, y: ev.clientY };
       const sensitivity = this._fov / Math.max(260, this._stage.clientWidth);
-      const horizontal = dx * (this.config.invert_x ? -1 : 1);
+      // Wall mounting needs the opposite pointer direction. Button and
+      // keyboard controls intentionally keep their established direction.
+      const wallPointerDirection = this.config.mounting_mode === "wall" ? -1 : 1;
+      const horizontal = dx * (this.config.invert_x ? -1 : 1) * wallPointerDirection;
       const vertical = dy * (this.config.invert_y ? -1 : 1)
         * (this.config.projection === "hemisphere" ? 1 : -1);
       const movement = this._transformControlDelta(horizontal, vertical);
@@ -1256,7 +1283,6 @@ class Ha360CameraCardEditor extends HTMLElement {
 
   setConfig(config) {
     this._config = { ...config };
-    this._expertCalibration ??= false;
     this._render();
   }
 
@@ -1282,10 +1308,10 @@ class Ha360CameraCardEditor extends HTMLElement {
           <label>Kameraprofil<select data-key="camera_profile">${[["generic","Generic"],["unifi_ai360","UniFi AI360"],["unifi_g6_pro_360","UniFi G6 Pro 360"],["generic_circular_fisheye","Generic circular fisheye"]].map(([v,l])=>`<option value="${v}" ${this._config.camera_profile===v?"selected":""}>${l}</option>`).join("")}</select></label>
           <div class="grid">${this._number("height","Höhe")}${this._number("step","Schrittweite")}</div></div>
         ${this._mountingSection()}
-        ${this._calibrationSection()}
-        <div class="section"><h3>Home & Ansichten</h3>
-          <div class="tabs"><button class="tab active" data-tab="home">Home-Position</button><button class="tab" data-tab="presets">Gespeicherte Ansichten</button></div>
-          <div class="tab-panel" data-tab-panel="home">
+        <div class="section"><h3>Kameraprofil, Home & Ansichten</h3>
+          <div class="tabs"><button class="tab active" data-tab="profile">Kameraprofil</button><button class="tab" data-tab="home">Home-Position</button><button class="tab" data-tab="presets">Gespeicherte Ansichten</button></div>
+          <div class="tab-panel" data-tab-panel="profile">${this._calibrationFields()}</div>
+          <div class="tab-panel" data-tab-panel="home" hidden>
             <small>Diese Werte verwendet die Home-Taste.</small>
             <div class="grid">${this._number("yaw","Yaw")}${this._number("pitch","Pitch")}${this._number("roll","Roll")}${this._number("fov","FOV")}</div>
             <div class="home-actions"><button data-use-current-home>Aktuelle Darstellung als Home übernehmen</button>${this._g6WallCalibrationButton()}</div>
@@ -1309,10 +1335,7 @@ class Ha360CameraCardEditor extends HTMLElement {
     this.querySelectorAll('[data-tab]').forEach(button => button.addEventListener('click', () => this._selectTab(button.dataset.tab)));
     this.querySelector('[data-use-current-home]')?.addEventListener('click', () => this._useCurrentViewAsHome(storageKey));
     this.querySelector('[data-apply-g6-wall]')?.addEventListener('click', () => this._applyG6WallCalibration());
-    this.querySelector('[data-expert-calibration]')?.addEventListener('change', event => {
-      this._expertCalibration = event.currentTarget.checked;
-      this._render();
-    });
+    this.querySelector('[data-reset-camera-profile]')?.addEventListener('click', () => this._restoreCameraProfile());
     this._setupMediaSelector();
   }
 
@@ -1379,23 +1402,39 @@ class Ha360CameraCardEditor extends HTMLElement {
     const wall = this._config.camera_profile === "unifi_g6_pro_360" &&
       this._config.mounting_mode === "wall" && Number(this._config.mounting_rotation || 0) === 0
       ? CAMERA_PROFILES.unifi_g6_pro_360.wall_calibration : {};
-    return { ...profile, ...wall, ...this._config };
+    return { ...CALIBRATION_DEFAULTS, ...profile, ...wall, ...this._config };
   }
 
-  _calibrationSection() {
-    const generic = ["generic", "generic_circular_fisheye"].includes(this._config.camera_profile || "generic");
-    const editable = generic || this._expertCalibration;
+  _calibrationFields() {
     const effective = this._effectiveCalibration();
-    const disabled = editable ? "" : "disabled";
-    const number = (key, label) => `<label>${label}<input type="number" data-key="${key}" value="${effective[key] ?? ""}" ${disabled}></label>`;
-    const checkbox = (key, label) => `<label class="check"><input type="checkbox" data-key="${key}" ${effective[key] ? "checked" : ""} ${disabled}>${label}</label>`;
-    return `<div class="section calibration-section"><h3>Kalibrierung</h3>
-      <small>${generic ? "Generisches Profil: Die Kalibrierungswerte sind direkt editierbar." : "Profilwerte werden schreibgeschützt angezeigt. Aktiviere den Expertenmodus, um sie zu überschreiben."}</small>
-      ${generic ? "" : `<label class="check"><input type="checkbox" data-expert-calibration ${this._expertCalibration ? "checked" : ""}>Expertenmodus: Profilwerte bearbeiten</label>`}
-      <label>Projektion<select data-key="projection" ${disabled}>${["hemisphere","rectilinear"].map(value=>`<option value="${value}" ${(effective.projection||"hemisphere")===value?"selected":""}>${value}</option>`).join("")}</select></label>
-      <div class="grid">${number("fisheye_fov","Fisheye-FOV")}${number("circle_radius","Kreisradius")}${number("center_x","Mittelpunkt X")}${number("center_y","Mittelpunkt Y")}${number("yaw","Yaw / Home")}${number("pitch","Pitch / Home")}${number("roll","Roll / Home")}${number("fov","FOV / Home")}${number("yaw_min","Yaw min")}${number("yaw_max","Yaw max")}${number("pitch_min","Pitch min")}${number("pitch_max","Pitch max")}${number("step","Schrittweite")}${number("rotate","Bilddrehung")}</div>
-      ${checkbox("mirror","Bild spiegeln")}${checkbox("control_invert_x","Bedienung X invertieren")}${checkbox("control_invert_y","Bedienung Y invertieren")}
-    </div>`;
+    const number = (key, label) => `<label>${label}<input type="number" data-key="${key}" value="${effective[key] ?? ""}"></label>`;
+    const checkbox = (key, label) => `<label class="check"><input type="checkbox" data-key="${key}" ${effective[key] ? "checked" : ""}>${label}</label>`;
+    return `<small>Alle Werte des gewählten Kameraprofils sind sichtbar und direkt änderbar.</small>
+      <button class="import" data-reset-camera-profile>Gespeicherte Profilwerte wiederherstellen</button>
+      <label>Projektion<select data-key="projection">${["hemisphere","rectilinear"].map(value=>`<option value="${value}" ${(effective.projection||"hemisphere")===value?"selected":""}>${value}</option>`).join("")}</select></label>
+      <div class="grid">${number("fisheye_fov","Fisheye-FOV")}${number("circle_radius","Kreisradius")}${number("center_x","Mittelpunkt X")}${number("center_y","Mittelpunkt Y")}${number("rotate","Bilddrehung")}${number("yaw","Yaw")}${number("pitch","Pitch")}${number("roll","Roll")}${number("fov","FOV")}${number("yaw_min","Yaw min")}${number("yaw_max","Yaw max")}${number("pitch_min","Pitch min")}${number("pitch_max","Pitch max")}</div>
+      ${checkbox("mirror","Bild spiegeln")}${checkbox("invert_x","Maus X invertieren")}${checkbox("invert_y","Maus Y invertieren")}${checkbox("control_invert_x","Bedienung X invertieren")}${checkbox("control_invert_y","Bedienung Y invertieren")}`;
+  }
+
+  _profileCalibration(profileName = this._config.camera_profile || "generic") {
+    const profile = CAMERA_PROFILES[profileName] || CAMERA_PROFILES.generic;
+    const values = { ...CALIBRATION_DEFAULTS };
+    for (const key of CALIBRATION_KEYS) {
+      if (profile[key] !== undefined) values[key] = profile[key];
+    }
+    if (profileName === "unifi_g6_pro_360" && this._config.mounting_mode === "wall" && Number(this._config.mounting_rotation || 0) === 0) {
+      Object.assign(values, CAMERA_PROFILES.unifi_g6_pro_360.wall_calibration);
+      delete values.rotation;
+    }
+    return values;
+  }
+
+  _restoreCameraProfile(profileName = this._config.camera_profile || "generic") {
+    const config = { ...this._config, camera_profile: profileName };
+    for (const key of CALIBRATION_KEYS) delete config[key];
+    Object.assign(config, this._profileCalibration(profileName));
+    this._emit(config);
+    this._render();
   }
 
   _mountingSection() {
@@ -1456,8 +1495,8 @@ class Ha360CameraCardEditor extends HTMLElement {
     if (value === undefined || value === "") delete config[element.dataset.key];
     else config[element.dataset.key] = value;
     if (element.dataset.key === "camera_profile") {
-      const profile = CAMERA_PROFILES[value] || CAMERA_PROFILES.generic;
-      Object.assign(config, profile);
+      for (const key of CALIBRATION_KEYS) delete config[key];
+      Object.assign(config, this._profileCalibration(value));
     }
     if (
       config.camera_profile === "unifi_g6_pro_360" &&
