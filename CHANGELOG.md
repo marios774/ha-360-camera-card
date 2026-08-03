@@ -1,5 +1,23 @@
 # Changelog
 
+## v1.2.2.2
+
+### English
+
+- Reduced the minimum field of view from `25` to `10`.
+- Fixed saving icons selected with Home Assistant's icon picker.
+- The active editor tab is now retained while typing or using numeric input arrows.
+- Reordered Yaw and Pitch into aligned minimum, maximum and current-value rows.
+- Added a circular help icon linking to the card's GitHub documentation.
+
+### Deutsch
+
+- Minimalen Sichtwinkel von `25` auf `10` reduziert.
+- Speichern der über Home Assistants Icon-Picker gewählten Symbole korrigiert.
+- Der aktive Editor-Tab bleibt bei Tastatureingaben und Zahlenpfeilen erhalten.
+- Yaw und Pitch in gemeinsame Zeilen für Minimum, Maximum und aktuellen Wert umgeordnet.
+- Kreisförmiges Hilfe-Symbol mit Link zur GitHub-Dokumentation ergänzt.
+
 ## v1.2.2.1
 
 ### English
