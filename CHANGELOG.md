@@ -1,57 +1,5 @@
 # Changelog
 
-### v1.2.2 corrected build 5
-
-**English**
-- Restored wall horizontal control to yaw so configured yaw limits work.
-- Fixed applying changed YAML home values without resetting interactive movement.
-- Added robust yaw/pitch min/max handling.
-- Generic profile calibration fields are now shown in a clearly highlighted editor panel.
-- Added compatibility warnings for the accidental keys `aw_max` and `tep`.
-
-**Deutsch**
-- Horizontale Wandsteuerung wieder auf Yaw umgestellt, damit Yaw-Grenzen greifen.
-- Übernahme geänderter YAML-Homewerte korrigiert, ohne interaktive Bewegungen zurückzusetzen.
-- Robuste Verarbeitung der Yaw-/Pitch-Min-/Max-Werte.
-- Kalibrierungsfelder generischer Profile werden in einem deutlich markierten Editorbereich angezeigt.
-- Kompatibilitätshinweise für die versehentlichen Schlüssel `aw_max` und `tep` ergänzt.
-
-
-### v1.2.2 corrective build
-
-#### English
-- Restored optical-axis rotation for left/right controls in wall mounting mode.
-- Generic camera profiles now expose their calibration and YAML values as visible input fields in the GUI.
-
-#### Deutsch
-- Bei Wandmontage drehen Links/Rechts die Ansicht wieder um die optische Kameraachse, statt seitlich zu schwenken.
-- Bei generischen Kameraprofilen werden die Kalibrierungs- und YAML-Werte nun als sichtbare Eingabefelder im GUI eingeblendet.
-
-
-## v1.2.2 — Corrected build 3
-
-### English
-
-- Corrected horizontal mouse and touch direction for wall mounting.
-- Prevented the visual editor from losing input focus after every character.
-- Sloped mounting is now visibly disabled until its axis calibration is complete.
-- Added a Geometry & Expert tab containing projection, limits and inversion values.
-- Added a Storage Key field to the visual editor.
-- Rounded stored and imported preset values to three decimal places.
-- Added illustrated mounting documentation using the supplied Down, Up, Wall and Sloped diagrams.
-
-### Deutsch
-
-- Horizontale Maus- und Touchrichtung bei Wandmontage korrigiert.
-- Verhindert, dass der visuelle Editor nach jedem Zeichen den Eingabefokus verliert.
-- Schräge Montage wird bis zur vollständigen Achsenkalibrierung sichtbar als deaktiviert geführt.
-- Neuer Tab „Geometrie & Experten“ für Projektion, Grenzwerte und Invertierung.
-- Storage-Key-Feld im visuellen Editor ergänzt.
-- Gespeicherte und importierte Ansichten werden auf drei Nachkommastellen gerundet.
-- Bebilderte Montagehilfe mit den bereitgestellten Grafiken für Unten, Oben, Wand und Schräge ergänzt.
-
----
-
 ## v1.2.2 – Second correction / Zweite Korrektur
 
 ### English

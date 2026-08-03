@@ -115,12 +115,3 @@ pitch_max: 167.5
 ```
 
 Im visuellen Editor können diese Werte über „G6 Pro 360 Wandkalibrierung übernehmen“ gesetzt werden. Statische Bilder können über den Home-Assistant-Medienbrowser oder einen manuellen Pfad gewählt werden.
-
-
-## Editor additions in corrected 1.2.2
-
-- Storage Key field in General
-- Geometry & Expert tab for limits and inversion
-- Sloped mounting is displayed as disabled
-- Preset values are rounded to three decimal places
-- Text inputs update on change/blur so keyboard focus remains stable
